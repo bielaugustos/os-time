@@ -11,7 +11,8 @@ import {
   RiTimeLine,
   RiFileTextLine,
   RiCalculatorLine,
-  RiBuilding2Line,
+  RiFlashlightLine,
+  RiMagicLine,
   RiSettings3Line,
 } from '@remixicon/react'
 
@@ -21,7 +22,8 @@ function getIconForId(id) {
     case 'clock': return RiTimeLine
     case 'notes': return RiFileTextLine
     case 'calculator': return RiCalculatorLine
-    case 'tower': return RiBuilding2Line
+    case 'energy': return RiFlashlightLine
+    case 'chat': return RiMagicLine
     case 'settings': return RiSettings3Line
     default: return null
   }
@@ -336,24 +338,27 @@ function Launcher({ period, onOpen }) {
         {APP_REGISTRY.map((app, i) => (
           <motion.button
             key={app.id}
-            onClick={() => onOpen(app.id)}
+            onClick={() => !app.disabled && onOpen(app.id)}
             initial={{ opacity:0, y:12 }}
             animate={{ opacity:1, y:0 }}
             transition={{ delay: i * 0.07, duration:.3, ease:[.22,1,.36,1] }}
             style={{
               display:'flex', flexDirection:'column', alignItems:'center', gap:10,
               padding:'20px 12px', borderRadius:16,
-              border:'1px solid var(--border)', background:'var(--surface)',
-              cursor:'pointer', fontFamily:'inherit',
+              border: app.disabled ? '1px dashed var(--border)' : '1px solid var(--border)',
+              background: app.disabled ? 'transparent' : 'var(--surface)',
+              cursor: app.disabled ? 'not-allowed' : 'pointer',
+              fontFamily:'inherit',
+              opacity: app.disabled ? 0.4 : 1,
             }}
-            whileHover={{ backgroundColor:'var(--surface-hover)', borderColor:'var(--border2)', y:-2 }}
-            whileTap={{ scale:.95 }}
+            whileHover={!app.disabled ? { backgroundColor:'var(--surface-hover)', borderColor:'var(--border2)', y:-2 } : {}}
+            whileTap={!app.disabled ? { scale:.95 } : {}}
            >
-             <div style={{ width:52, height:52, borderRadius:14, background:`${app.color}18`, border:`1px solid ${app.color}28`, display:'flex', alignItems:'center', justifyContent:'center', color: app.color }}>
-                {(() => {
-                  const Icon = getIconForId(app.id)
-                  return Icon ? <Icon size={app.iconSize ?? 26} /> : null
-                })()}
+              <div style={{ width:52, height:52, borderRadius:14, background: app.disabled ? `${app.color}08` : `${app.color}18`, border:`1px solid ${app.color}28`, display:'flex', alignItems:'center', justifyContent:'center', color: app.color }}>
+                 {(() => {
+                   const Icon = getIconForId(app.id)
+                   return Icon ? <Icon size={app.iconSize ?? 26} /> : null
+                 })()}
               </div>
              <span style={{ fontSize:12, color:'var(--text-sec)' }}>{t(app.appKey)}</span>
            </motion.button>
@@ -365,7 +370,7 @@ function Launcher({ period, onOpen }) {
           {t('shortcuts.title')}
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-          {[['1–5',t('shortcuts.apps')],['Esc',t('shortcuts.home')],['Ctrl+,',t('shortcuts.settings')],['Ctrl+N',t('shortcuts.newNote')]].map(([k, v]) => (
+          {[['1–6',t('shortcuts.apps')],['Esc',t('shortcuts.home')],['Ctrl+,',t('shortcuts.settings')],['Ctrl+N',t('shortcuts.newNote')]].map(([k, v]) => (
             <div key={k} style={{ display:'flex', alignItems:'center', gap:8 }}>
               <kbd style={{ background:'var(--surface-hover)', border:'1px solid var(--border2)', borderRadius:5, padding:'2px 7px', fontSize:11, fontFamily:'var(--font-mono)', color:'var(--text-sec)' }}>{k}</kbd>
               <span style={{ fontSize:12, color:'var(--text-ter)' }}>{v}</span>
@@ -422,7 +427,7 @@ function AppWindow({ appId, onClose, onThemeOverride }) {
             {t(app.appKey)}
           </span>
         </div>
-        <button onClick={onClose} onTouchStart={(e) => { e.preventDefault(); onClose() }} style={{
+        <button onClick={onClose} style={{
           background:'var(--surface)', border:'1px solid var(--border)',
           borderRadius:9, width:30, height:30, cursor:'pointer',
           color:'var(--text-sec)', fontSize:17,
@@ -467,8 +472,9 @@ export default function App() {
       if (e.key === '1') setActiveApp('clock')
       if (e.key === '2') setActiveApp('notes')
       if (e.key === '3') setActiveApp('calculator')
-      if (e.key === '4') setActiveApp('tower')
-      if (e.key === '5') setActiveApp('settings')
+      if (e.key === '4') setActiveApp('energy')
+      if (e.key === '5') setActiveApp('chat')
+      if (e.key === '6') setActiveApp('settings')
       if (e.ctrlKey && e.key === ',') { e.preventDefault(); setActiveApp('settings') }
       if (e.ctrlKey && e.key === 'n') { e.preventDefault(); setActiveApp('notes') }
     }
