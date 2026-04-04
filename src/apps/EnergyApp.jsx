@@ -1,243 +1,315 @@
-import React, { useRef, useEffect, useState } from 'react'
-import * as THREE from 'three'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
+
+const GRADIENT = {
+  rainbow: ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#b3baff', '#ffbaff'],
+  fade: (color, intensity) => {
+    const hex = color.replace('#', '')
+    let r = parseInt(hex.substring(0, 2), 16)
+    let g = parseInt(hex.substring(2, 4), 16)
+    let b = parseInt(hex.substring(4, 6), 16)
+    r = Math.round(r * (1 - intensity) + 255 * intensity)
+    g = Math.round(g * (1 - intensity) + 255 * intensity)
+    b = Math.round(b * (1 - intensity) + 255 * intensity)
+    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')
+  }
+}
+
+const COLORS = [
+  '#000000',
+  ...Array.from({ length: 100 }, (_, i) => {
+    const colorIndex = i % GRADIENT.rainbow.length
+    const intensity = (i % 20) / 20
+    return GRADIENT.fade(GRADIENT.rainbow[colorIndex], intensity * 0.5)
+  })
+]
+
+const TOWER_WIDTH = 80
+const TOWER_HEIGHT = 20
 
 export default function EnergyApp() {
-  const containerRef = useRef(null)
-  const sceneRef = useRef(null)
-  const cameraRef = useRef(null)
-  const rendererRef = useRef(null)
-  const blocksRef = useRef([])
-  const currentBlockRef = useRef(null)
+  const { t } = useTranslation()
+  const [score, setScore] = useState(0)
+  const [perfectCount, setPerfectCount] = useState(0)
+  const [gameState, setGameState] = useState('idle')
+  const [blocks, setBlocks] = useState([])
+  const [currentX, setCurrentX] = useState(0)
+  const [direction, setDirection] = useState(1)
+  const [level, setLevel] = useState(1)
+  const [scrollY, setScrollY] = useState(0)
+  const [showInstruction, setShowInstruction] = useState(true)
+
+  const currentBlockRef = useRef({ x: 0, w: 4, color: COLORS[0] })
+  const baseBlockRef = useRef({ x: 0, w: 4 })
+  const colorIndexRef = useRef(0)
+  const speedRef = useRef(4)
   const animationRef = useRef(null)
   const directionRef = useRef(1)
-  const speedRef = useRef(0.15)
-  const platformRef = useRef(null)
-  
-  const [score, setScore] = useState(0)
-  const [gameOver, setGameOver] = useState(false)
-  const [combo, setCombo] = useState(0)
 
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    const scene = new THREE.Scene()
-    sceneRef.current = scene
-
-    const camera = new THREE.PerspectiveCamera(45, containerRef.current.clientWidth / containerRef.current.clientHeight, 0.1, 1000)
-    camera.position.set(0, 15, 30)
-    camera.lookAt(0, 5, 0)
-    cameraRef.current = camera
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.shadowMap.enabled = true
-    containerRef.current.appendChild(renderer.domElement)
-    rendererRef.current = renderer
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
-    scene.add(ambientLight)
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-    directionalLight.position.set(10, 20, 10)
-    directionalLight.castShadow = true
-    scene.add(directionalLight)
-
-    const platformGeometry = new THREE.BoxGeometry(8, 1, 8)
-    const platformMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 })
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial)
-    platform.position.y = -0.5
-    platform.receiveShadow = true
-    scene.add(platform)
-    platformRef.current = platform
-
-    const colors = [0x60a5fa, 0xa78bfa, 0x34d399, 0xfbbf24, 0xf87171, 0x2dd4bf]
-    
-    const blockGeometry = new THREE.BoxGeometry(4, 1, 4)
-    const blockMaterial = new THREE.MeshLambertMaterial({ color: colors[0] })
-    const firstBlock = new THREE.Mesh(blockGeometry, blockMaterial)
-    firstBlock.position.set(0, 0.5, 0)
-    firstBlock.castShadow = true
-    firstBlock.receiveShadow = true
-    scene.add(firstBlock)
-    blocksRef.current.push(firstBlock)
-
-    createNewBlock()
-
-    const animate = () => {
-      animationRef.current = requestAnimationFrame(animate)
-      
-      if (currentBlockRef.current && !gameOver) {
-        const block = currentBlockRef.current
-        const time = Date.now() * 0.001
-        const offset = Math.sin(time * 3) * 6
-        block.position.x = offset
-      }
-      
-      renderer.render(scene, camera)
-    }
-    animate()
-
-    const handleResize = () => {
-      if (!containerRef.current) return
-      camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight
-      camera.updateProjectionMatrix()
-      renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight)
-    }
-    window.addEventListener('resize', handleResize)
-
-    const handleClick = (e) => {
-      if (gameOver) {
-        resetGame()
-        return
-      }
-      placeBlock()
-    }
-    containerRef.current.addEventListener('click', handleClick)
-    containerRef.current.addEventListener('touchend', (e) => {
-      if (gameOver) {
-        resetGame()
-        return
-      }
-      placeBlock()
-    }, { passive: false })
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      if (containerRef.current) {
-        containerRef.current.removeEventListener('click', handleClick)
-      }
-      cancelAnimationFrame(animationRef.current)
-      renderer.dispose()
-    }
-  }, [gameOver])
-
-  const createNewBlock = () => {
-    const scene = sceneRef.current
-    const colors = [0x60a5fa, 0xa78bfa, 0x34d399, 0xfbbf24, 0xf87171, 0x2dd4bf]
-    const colorIndex = blocksRef.current.length % colors.length
-    
-    const blockGeometry = new THREE.BoxGeometry(4, 1, 4)
-    const blockMaterial = new THREE.MeshLambertMaterial({ color: colors[colorIndex] })
-    const block = new THREE.Mesh(blockGeometry, blockMaterial)
-    block.castShadow = true
-    block.receiveShadow = true
-    scene.add(block)
-    
-    const lastBlock = blocksRef.current[blocksRef.current.length - 1]
-    block.position.y = lastBlock.position.y + 1
-    
-    currentBlockRef.current = block
-    directionRef.current = directionRef.current * -1
+  const getColor = (i) => {
+    return COLORS[i % COLORS.length]
   }
 
-  const placeBlock = () => {
-    const currentBlock = currentBlockRef.current
-    const lastBlock = blocksRef.current[blocksRef.current.length - 1]
-    
-    if (!currentBlock || !lastBlock) return
+  const RANGE = 4
 
-    const overlap = 4 - Math.abs(currentBlock.position.x - lastBlock.position.x)
+  useEffect(() => {
+    const animate = () => {
+      if (gameState === 'playing') {
+        setCurrentX(x => {
+          const newX = x + speedRef.current * directionRef.current * 0.016
+          const limit = RANGE - currentBlockRef.current.w / 2
+          if (newX > limit) {
+            directionRef.current = -1
+            return limit
+          } else if (newX < -limit) {
+            directionRef.current = 1
+            return -limit
+          }
+          return newX
+        })
+      }
+      animationRef.current = requestAnimationFrame(animate)
+    }
+    animate()
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    }
+  }, [gameState])
+
+  const initGame = useCallback(() => {
+    setBlocks([])
+    setScore(0)
+    setPerfectCount(0)
+    setLevel(1)
+    setScrollY(0)
+    setShowInstruction(true)
+    colorIndexRef.current = 0
+
+    setTimeout(() => setShowInstruction(false), 5000)
+    speedRef.current = 2
+    directionRef.current = 1
+
+    const base = { x: 0, w: 4, y: 0, color: getColor(0) }
+    baseBlockRef.current = { x: 0, w: 4 }
+    setBlocks([base])
+    colorIndexRef.current = 1
+
+    const randomColor = COLORS[Math.floor(Math.random() * (COLORS.length - 1)) + 1]
+    currentBlockRef.current = { x: 0, w: 4, color: randomColor, movingDir: 'x', y: 1 }
+    setCurrentX(0)
+  }, [getColor])
+
+  const placeBlock = useCallback(() => {
+    const top = blocks[blocks.length - 1] || baseBlockRef.current
+    const cb = { ...currentBlockRef.current, x: currentX }
+    const topX = top.x
+    const cbX = cb.x
+
+    const overlap = cb.w - Math.abs(cbX - topX)
     
     if (overlap <= 0) {
-      setGameOver(true)
+      setGameState('gameover')
       return
     }
 
-    const newWidth = overlap
-    const newX = (currentBlock.position.x + lastBlock.position.x) / 2
-    
-    currentBlock.geometry.dispose()
-    currentBlock.geometry = new THREE.BoxGeometry(newWidth, 1, 4)
-    currentBlock.position.x = newX
-    
-    blocksRef.current.push(currentBlock)
-    
-    const accuracy = overlap / 4
-    let comboMultiplier = 1
-    if (accuracy > 0.95) {
-      comboMultiplier = 3
-      setCombo(c => c + 1)
-    } else if (accuracy > 0.8) {
-      comboMultiplier = 2
-      setCombo(0)
-    } else {
-      setCombo(0)
-    }
-    
-    const points = Math.round(10 * accuracy * comboMultiplier)
-    setScore(s => s + points)
-    
-    if (blocksRef.current.length > 1) {
-      const camera = cameraRef.current
-      const targetY = blocksRef.current[blocksRef.current.length - 1].position.y + 10
-      camera.position.y += (targetY - camera.position.y) * 0.3
-      camera.lookAt(0, blocksRef.current[blocksRef.current.length - 1].position.y, 0)
-    }
-    
-    createNewBlock()
-  }
+    let newW = overlap
+    let newX = topX + (cbX - topX) / 2
 
-  const resetGame = () => {
-    const scene = sceneRef.current
-    blocksRef.current.forEach(block => scene.remove(block))
-    blocksRef.current = []
+    if (Math.abs(cbX - topX) < 0.15) {
+      newW = top.w
+      newX = topX
+      setPerfectCount(c => c + 1)
+    }
+
+    const newBlock = {
+      x: newX,
+      w: newW,
+      y: blocks.length,
+      color: currentBlockRef.current.color
+    }
+
+    setBlocks(bs => [...bs, newBlock])
+    setScore(s => s + 1)
+    setLevel(l => l + 1)
+
+    colorIndexRef.current += 1
+    const nextColor = getColor(colorIndexRef.current)
     
-    if (currentBlockRef.current) {
-      scene.remove(currentBlockRef.current)
-      currentBlockRef.current = null
+    const newDir = currentBlockRef.current.movingDir === 'x' ? 'z' : 'x'
+    currentBlockRef.current = { 
+      x: 0, 
+      w: newW, 
+      color: nextColor, 
+      movingDir: newDir,
+      y: blocks.length + 1
     }
     
-    const colors = [0x60a5fa, 0xa78bfa, 0x34d399, 0xfbbf24, 0xf87171, 0x2dd4bf]
-    const blockGeometry = new THREE.BoxGeometry(4, 1, 4)
-    const blockMaterial = new THREE.MeshLambertMaterial({ color: colors[0] })
-    const firstBlock = new THREE.Mesh(blockGeometry, blockMaterial)
-    firstBlock.position.set(0, 0.5, 0)
-    firstBlock.castShadow = true
-    firstBlock.receiveShadow = true
-    scene.add(firstBlock)
-    blocksRef.current.push(firstBlock)
-    
-    const camera = cameraRef.current
-    camera.position.set(0, 15, 30)
-    camera.lookAt(0, 5, 0)
-    
-    setScore(0)
-    setGameOver(false)
-    setCombo(0)
-    
-    createNewBlock()
-  }
+    setCurrentX(0)
+    speedRef.current = 2 + level * 0.1
+    directionRef.current = 1
+
+    if (blocks.length > 0) {
+      setScrollY(s => s - TOWER_HEIGHT)
+    }
+  }, [blocks.length, currentX, level, getColor])
+
+  const handleTap = useCallback(() => {
+    if (gameState === 'idle') {
+      setGameState('playing')
+      initGame()
+    } else if (gameState === 'gameover') {
+      setGameState('playing')
+      initGame()
+    } else if (gameState === 'playing') {
+      placeBlock()
+    }
+  }, [gameState, initGame, placeBlock])
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault()
+        handleTap()
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [handleTap])
+
+  useEffect(() => {
+    if (gameState === 'idle') {
+      setScrollY(0)
+    }
+  }, [gameState])
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', width:'100%' }}>
-      <div ref={containerRef} style={{ flex:1, width:'100%', minHeight:0, cursor:'pointer' }} />
-      
+    <div style={{ 
+      display:'flex', 
+      flexDirection:'column', 
+      height:'100%', 
+      width:'100%', 
+      position:'relative', 
+      background:'#1a1a2e',
+      cursor: 'pointer',
+      userSelect: 'none',
+    }}
+      onClick={handleTap}
+    >
       <div style={{
         position:'absolute',
         top:20,
-        left:20,
-        padding:'12px 18px',
-        borderRadius:12,
-        background:'rgba(0,0,0,0.6)',
-        backdropFilter:'blur(8px)',
-        border:'1px solid var(--border)',
+        left:'50%',
+        transform:'translateX(-50%)',
+        textAlign:'center',
         zIndex:10,
       }}>
-        <div style={{ fontSize:10, color:'var(--text-ter)', textTransform:'uppercase', letterSpacing:1.5, marginBottom:4 }}>
-          Score
-        </div>
-        <div style={{ fontSize:28, fontWeight:700, color:'var(--text-pri)', fontFamily:'Syne' }}>
+        <div style={{ fontSize:56, fontWeight:700, color:'#fff', fontFamily:'Syne', lineHeight:1 }}>
           {score}
         </div>
-        {combo > 0 && (
-          <div style={{ fontSize:11, color:'var(--accent)', marginTop:2 }}>
-            Combo x{combo}
+        <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:4, marginTop:4 }}>
+          {t('energy.score').toUpperCase()}
+        </div>
+      </div>
+
+      {perfectCount > 0 && (
+        <div style={{
+          position:'absolute',
+          top:20,
+          right:20,
+          padding:'10px 16px',
+          borderRadius:12,
+          background:'rgba(255,255,255,0.08)',
+          border:'1px solid rgba(255,255,255,0.15)',
+          zIndex:10,
+        }}>
+          <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:2 }}>
+            {t('energy.best').toUpperCase()}
+          </div>
+          <div style={{ fontSize:24, fontWeight:700, color:'#f0c040', fontFamily:'Syne', marginTop:2 }}>
+            {perfectCount}
+          </div>
+        </div>
+      )}
+
+      <div style={{
+        position: 'absolute',
+        left: '50%',
+        top: `calc(50% - ${scrollY}px)`,
+        width: 0,
+        height: 0,
+        transition: 'top 0.3s ease-out',
+      }}>
+        {blocks.slice(0, Math.min(100, blocks.length)).map((block, i) => (
+          <div key={i} style={{
+            position: 'absolute',
+            left: block.x * TOWER_WIDTH - (block.w * TOWER_WIDTH) / 2 + TOWER_WIDTH / 2,
+            top: -(i * TOWER_HEIGHT) - TOWER_HEIGHT,
+            width: block.w * TOWER_WIDTH - 2,
+            height: TOWER_HEIGHT - 2,
+            background: block.color,
+            borderRadius: 4,
+            boxShadow: `0 2px 10px ${block.color}40`,
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: 2,
+              left: 4,
+              right: 4,
+              height: 3,
+              background: 'rgba(255,255,255,0.25)',
+              borderRadius: 1,
+            }} />
+          </div>
+        ))}
+
+        {gameState === 'playing' && currentBlockRef.current && (
+          <div style={{
+            position: 'absolute',
+            left: currentX * TOWER_WIDTH - (currentBlockRef.current.w * TOWER_WIDTH) / 2 + TOWER_WIDTH / 2,
+            top: -(currentBlockRef.current.y * TOWER_HEIGHT) - TOWER_HEIGHT,
+            width: currentBlockRef.current.w * TOWER_WIDTH - 2,
+            height: TOWER_HEIGHT - 2,
+            background: currentBlockRef.current.color,
+            borderRadius: 4,
+            boxShadow: `0 0 20px ${currentBlockRef.current.color}60`,
+            opacity: 0.9,
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: 2,
+              left: 4,
+              right: 4,
+              height: 3,
+              background: 'rgba(255,255,255,0.25)',
+              borderRadius: 1,
+            }} />
           </div>
         )}
       </div>
 
-      {gameOver && (
+      {gameState !== 'idle' && (
+        <div style={{
+          position:'absolute',
+          bottom:30,
+          left:'50%',
+          transform:'translateX(-50%)',
+          padding:'12px 24px',
+          borderRadius:24,
+          background:'rgba(255,255,255,0.15)',
+          border:'1px solid rgba(255,255,255,0.3)',
+          zIndex:15,
+          fontSize:14,
+          color:'#fff',
+          letterSpacing:2,
+          pointerEvents:'none',
+          opacity: showInstruction ? 1 : 0,
+          transition: 'opacity 0.5s ease-out',
+        }}>
+          {gameState === 'playing' ? t('energy.instruction') : t('energy.tapToStart')}
+        </div>
+      )}
+
+      {gameState === 'idle' && (
         <div style={{
           position:'absolute',
           top:0,
@@ -248,51 +320,66 @@ export default function EnergyApp() {
           flexDirection:'column',
           alignItems:'center',
           justifyContent:'center',
-          background:'rgba(0,0,0,0.8)',
-          backdropFilter:'blur(4px)',
+          background:'rgba(26,26,46,0.95)',
           zIndex:20,
           gap:16,
         }}>
-          <div style={{ fontSize:32, fontWeight:700, color:'var(--text-pri)', fontFamily:'Syne' }}>
-            Game Over
+          <div style={{ fontSize:13, fontWeight:600, color:'#fff', fontFamily:'Syne', letterSpacing:3 }}>
+            {t('energy.tapToStart').toUpperCase()}
           </div>
-          <div style={{ fontSize:14, color:'var(--text-sec)' }}>
-            Final Score: {score}
-          </div>
-          <button onClick={resetGame} style={{
-            padding:'14px 32px',
-            borderRadius:10,
-            border:'none',
-            cursor:'pointer',
-            fontFamily:'Syne',
-            fontSize:14,
-            fontWeight:600,
-            background:'var(--accent)',
-            color:'#fff',
-            transition:'all .15s',
-          }} onMouseEnter={e => e.currentTarget.style.opacity = 0.9} onMouseLeave={e => e.currentTarget.style.opacity = 1}>
-            Play Again
-          </button>
         </div>
       )}
 
-      <div style={{
-        position:'absolute',
-        bottom:20,
-        left:'50%',
-        transform:'translateX(-50%)',
-        padding:'10px 16px',
-        borderRadius:20,
-        background:'rgba(0,0,0,0.5)',
-        backdropFilter:'blur(8px)',
-        border:'1px solid var(--border)',
-        zIndex:10,
-        fontSize:12,
-        color:'var(--text-sec)',
-        pointerEvents:'none',
-      }}>
-        Tap or click to place block
-      </div>
+      {gameState === 'gameover' && (
+        <div style={{
+          position:'absolute',
+          top:0,
+          left:0,
+          right:0,
+          bottom:0,
+          display:'flex',
+          flexDirection:'column',
+          alignItems:'center',
+          justifyContent:'center',
+          background:'rgba(26,26,46,0.95)',
+          zIndex:20,
+          gap:16,
+        }}>
+          <div style={{ fontSize:32, fontWeight:700, color:'#fff', fontFamily:'Syne' }}>
+            {t('energy.gameOver')}
+          </div>
+          <div style={{ marginBottom:24 }} />
+          <div style={{ fontSize:11, letterSpacing:3, color:'rgba(255,255,255,0.4)', marginBottom:6 }}>
+            {t('energy.score').toUpperCase()}
+          </div>
+          <div style={{ fontSize:64, fontWeight:700, color:'#fff', fontFamily:'Syne', marginBottom:6 }}>
+            {score}
+          </div>
+          <div style={{
+            fontSize:14,
+            color:'#f0c040',
+            letterSpacing:2,
+            marginBottom:40,
+          }}>
+            {perfectCount} {t('energy.best').toUpperCase()}
+          </div>
+          <div style={{
+            fontSize:13,
+            letterSpacing:3,
+            color:'rgba(255,255,255,0.6)',
+            animation:'blink 1.4s infinite',
+          }}>
+            {t('energy.tapToStart')}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+      `}</style>
     </div>
   )
 }
