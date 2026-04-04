@@ -1,0 +1,346 @@
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; overflow: hidden; }
+  #game-container { width: 100%; height: 600px; position: relative; background: #1a1a2e; }
+  canvas { display: block; }
+  #ui-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; font-family: 'Courier New', monospace;
+  }
+  #score-panel {
+    position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    text-align: center; color: white;
+  }
+  #score { font-size: 56px; font-weight: bold; line-height: 1; color: #fff; }
+  #score-label { font-size: 12px; letter-spacing: 4px; color: rgba(255,255,255,0.5); margin-top: 4px; }
+  #wallet-panel {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px; padding: 10px 16px; text-align: right; color: white;
+  }
+  #wallet-label { font-size: 10px; letter-spacing: 2px; color: rgba(255,255,255,0.4); }
+  #wallet-tokens { font-size: 20px; font-weight: bold; color: #f0c040; margin-top: 2px; }
+  #wallet-addr { font-size: 10px; color: rgba(255,255,255,0.3); margin-top: 4px; }
+  #connect-btn {
+    position: absolute; top: 20px; left: 20px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px; padding: 8px 14px; color: white; font-size: 11px;
+    letter-spacing: 1px; cursor: pointer; pointer-events: all;
+    font-family: 'Courier New', monospace; transition: background 0.2s;
+  }
+  #connect-btn:hover { background: rgba(255,255,255,0.15); }
+  #start-screen, #gameover-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(26,26,46,0.92); pointer-events: all;
+  }
+  .screen-title { font-size: 40px; font-weight: bold; color: #fff; letter-spacing: 6px; margin-bottom: 8px; }
+  .screen-sub { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 3px; margin-bottom: 40px; }
+  .tap-hint {
+    font-size: 13px; letter-spacing: 3px; color: rgba(255,255,255,0.6);
+    animation: blink 1.4s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .final-score-label { font-size: 11px; letter-spacing: 3px; color: rgba(255,255,255,0.4); margin-bottom: 6px; }
+  .final-score-num { font-size: 64px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+  .tokens-earned { font-size: 14px; color: #f0c040; letter-spacing: 2px; margin-bottom: 40px; }
+  #perfect-flash {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 18px; letter-spacing: 4px; color: #f0c040;
+    opacity: 0; pointer-events: none; transition: opacity 0.1s;
+    font-family: 'Courier New', monospace;
+  }
+  #level-flash {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; letter-spacing: 4px; color: rgba(255,255,255,0.5);
+    pointer-events: none; font-family: 'Courier New', monospace;
+  }
+</style>
+
+<div id="game-container">
+  <canvas id="gameCanvas"></canvas>
+  <div id="ui-overlay">
+    <div id="score-panel">
+      <div id="score">0</div>
+      <div id="score-label">SCORE</div>
+    </div>
+    <div id="wallet-panel">
+      <div id="wallet-label">TOKENS</div>
+      <div id="wallet-tokens">0 TBK</div>
+      <div id="wallet-addr">● wallet not connected</div>
+    </div>
+    <button id="connect-btn" onclick="connectWallet()">CONNECT WALLET</button>
+    <div id="perfect-flash">PERFECT!</div>
+    <div id="level-flash"></div>
+  </div>
+  <div id="start-screen">
+    <div class="screen-title">TOWER</div>
+    <div class="screen-sub">BLOCKS</div>
+    <div class="tap-hint">TAP TO PLAY</div>
+  </div>
+  <div id="gameover-screen" style="display:none">
+    <div class="screen-title">GAME OVER</div>
+    <div style="margin-bottom:24px"></div>
+    <div class="final-score-label">YOUR SCORE</div>
+    <div class="final-score-num" id="final-score">0</div>
+    <div class="tokens-earned" id="tokens-earned">+0 TBK earned</div>
+    <div class="tap-hint">TAP TO PLAY AGAIN</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const canvas = document.getElementById('gameCanvas');
+const container = document.getElementById('game-container');
+const W = container.clientWidth;
+const H = container.clientHeight;
+canvas.width = W; canvas.height = H;
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+scene.fog = new THREE.Fog(0x1a1a2e, 20, 60);
+
+const camera = new THREE.OrthographicCamera(W/-60, W/60, H/60, H/-60, 1, 200);
+camera.position.set(20, 20, 20);
+camera.lookAt(0, 0, 0);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(10, 20, 10);
+dirLight.castShadow = true;
+scene.add(dirLight);
+
+const BLOCK_HEIGHT = 0.5;
+const SPEED_INITIAL = 0.05;
+const SPEED_INCREMENT = 0.002;
+const PERFECT_THRESHOLD = 0.08;
+
+const COLORS = [
+  0xe8d5b7, 0xc8e6c9, 0xbbdefb, 0xf8bbd0,
+  0xffe0b2, 0xe1bee7, 0xb2dfdb, 0xfff9c4,
+  0xdcedc8, 0xb3e5fc, 0xfce4ec, 0xf0f4c3
+];
+
+let state = 'idle';
+let score = 0;
+let tokens = 0;
+let walletConnected = false;
+let stack = [];
+let currentBlock = null;
+let direction = 'x';
+let speed = SPEED_INITIAL;
+let cameraY = 0;
+let colorIndex = 0;
+let perfectCount = 0;
+let totalTokens = 0;
+
+function getColor(i) { return COLORS[i % COLORS.length]; }
+
+function createBlock(x, z, w, d, y, color) {
+  const geo = new THREE.BoxGeometry(w, BLOCK_HEIGHT, d);
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+  return { mesh, x, z, w, d, y, color };
+}
+
+function createFallingBlock(x, z, w, d, y, color) {
+  const geo = new THREE.BoxGeometry(w, BLOCK_HEIGHT, d);
+  const mat = new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.7 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+  return { mesh, vy: 0 };
+}
+
+function initGame() {
+  stack.forEach(b => scene.remove(b.mesh));
+  if (currentBlock) scene.remove(currentBlock.mesh);
+  stack = []; currentBlock = null;
+  direction = 'x'; speed = SPEED_INITIAL; cameraY = 0;
+  colorIndex = 0; perfectCount = 0;
+  score = 0; tokens = 0;
+  updateScoreUI();
+
+  const base = createBlock(0, 0, 3, 3, 0, getColor(0));
+  stack.push(base);
+  spawnBlock();
+}
+
+function spawnBlock() {
+  colorIndex++;
+  const top = stack[stack.length - 1];
+  const y = top.y + BLOCK_HEIGHT;
+  const color = getColor(colorIndex);
+  const range = 5;
+  let x = top.x, z = top.z;
+
+  if (direction === 'x') x = top.x + range;
+  else z = top.z + range;
+
+  const block = createBlock(x, z, top.w, top.d, y, color);
+  currentBlock = { ...block, movingDir: direction };
+  direction = direction === 'x' ? 'z' : 'x';
+  speed = SPEED_INITIAL + stack.length * SPEED_INCREMENT;
+}
+
+let fallingBlocks = [];
+
+function placeBlock() {
+  if (!currentBlock) return;
+  const top = stack[stack.length - 1];
+  const cb = currentBlock;
+
+  let overlap, offset, newX = cb.x, newZ = cb.z, newW = cb.w, newD = cb.d;
+
+  if (cb.movingDir === 'x') {
+    overlap = cb.w - Math.abs(cb.x - top.x);
+    if (overlap <= 0) { triggerGameOver(); return; }
+    offset = cb.x - top.x;
+    newW = overlap;
+    newX = top.x + offset / 2;
+    if (Math.abs(offset) < PERFECT_THRESHOLD) {
+      newW = top.w; newX = top.x;
+      showPerfect();
+    } else {
+      const cutW = cb.w - overlap;
+      const cutX = cb.x > top.x ? cb.x + cb.w/2 - cutW/2 : cb.x - cb.w/2 + cutW/2;
+      fallingBlocks.push(createFallingBlock(cutX, cb.z, cutW, cb.d, cb.y, cb.color));
+    }
+  } else {
+    overlap = cb.d - Math.abs(cb.z - top.z);
+    if (overlap <= 0) { triggerGameOver(); return; }
+    offset = cb.z - top.z;
+    newD = overlap;
+    newZ = top.z + offset / 2;
+    if (Math.abs(offset) < PERFECT_THRESHOLD) {
+      newD = top.d; newZ = top.z;
+      showPerfect();
+    } else {
+      const cutD = cb.d - overlap;
+      const cutZ = cb.z > top.z ? cb.z + cb.d/2 - cutD/2 : cb.z - cb.d/2 + cutD/2;
+      fallingBlocks.push(createFallingBlock(cb.x, cutZ, cb.w, cutD, cb.y, cb.color));
+    }
+  }
+
+  scene.remove(cb.mesh);
+  const placed = createBlock(newX, newZ, newW, newD, cb.y, cb.color);
+  stack.push(placed);
+  currentBlock = null;
+
+  score++;
+  const earned = 1;
+  tokens += earned;
+  totalTokens += earned;
+  updateScoreUI();
+
+  const targetY = stack.length * BLOCK_HEIGHT - 4;
+  cameraY += (targetY - cameraY) * 1;
+
+  spawnBlock();
+}
+
+function showPerfect() {
+  const el = document.getElementById('perfect-flash');
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 600);
+  perfectCount++;
+  tokens += 2;
+  totalTokens += 2;
+}
+
+function triggerGameOver() {
+  if (currentBlock) scene.remove(currentBlock.mesh);
+  currentBlock = null;
+  state = 'gameover';
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('tokens-earned').textContent = '+' + tokens + ' TBK earned';
+  document.getElementById('gameover-screen').style.display = 'flex';
+}
+
+function updateScoreUI() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('wallet-tokens').textContent = totalTokens + ' TBK';
+}
+
+function connectWallet() {
+  walletConnected = !walletConnected;
+  const btn = document.getElementById('connect-btn');
+  const addr = document.getElementById('wallet-addr');
+  if (walletConnected) {
+    btn.textContent = 'DISCONNECT';
+    addr.textContent = '● 0x4f3a...mock';
+    addr.style.color = '#6cf0a0';
+  } else {
+    btn.textContent = 'CONNECT WALLET';
+    addr.textContent = '● wallet not connected';
+    addr.style.color = 'rgba(255,255,255,0.3)';
+  }
+}
+
+function handleTap() {
+  if (state === 'idle') {
+    document.getElementById('start-screen').style.display = 'none';
+    state = 'playing';
+    initGame();
+  } else if (state === 'gameover') {
+    document.getElementById('gameover-screen').style.display = 'none';
+    state = 'playing';
+    initGame();
+  } else if (state === 'playing') {
+    placeBlock();
+  }
+}
+
+canvas.addEventListener('click', handleTap);
+document.addEventListener('keydown', e => { if (e.code === 'Space') handleTap(); });
+
+let dir = 1;
+const fallingGravity = [];
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (state === 'playing' && currentBlock) {
+    const cb = currentBlock;
+    const top = stack[stack.length - 1];
+    const range = 5;
+    if (cb.movingDir === 'x') {
+      cb.x += speed * dir;
+      if (cb.x > top.x + range || cb.x < top.x - range) dir *= -1;
+      cb.mesh.position.x = cb.x;
+    } else {
+      cb.z += speed * dir;
+      if (cb.z > top.z + range || cb.z < top.z - range) dir *= -1;
+      cb.mesh.position.z = cb.z;
+    }
+  }
+
+  fallingBlocks = fallingBlocks.filter(fb => {
+    fb.vy -= 0.012;
+    fb.mesh.position.y += fb.vy;
+    fb.mesh.rotation.x += 0.03;
+    fb.mesh.rotation.z += 0.02;
+    if (fb.mesh.position.y < -20) { scene.remove(fb.mesh); return false; }
+    return true;
+  });
+
+  const targetCamY = cameraY;
+  camera.position.set(20 + targetCamY, 20 + targetCamY, 20 + targetCamY);
+  camera.lookAt(0, targetCamY, 0);
+
+  renderer.render(scene, camera);
+}
+dir = 1;
+animate();
+</script>
