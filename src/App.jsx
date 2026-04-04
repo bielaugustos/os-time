@@ -16,6 +16,7 @@ import {
   RiFlashlightLine,
   RiMagicLine,
   RiSettings3Line,
+  RiStackLine,
 } from '@remixicon/react'
 
 function getIconForId(id) {
@@ -24,7 +25,7 @@ function getIconForId(id) {
     case 'clock': return RiTimeLine
     case 'notes': return RiFileTextLine
     case 'calculator': return RiCalculatorLine
-    case 'energy': return RiFlashlightLine
+    case 'energy': return RiStackLine
     case 'chat': return RiMagicLine
     case 'settings': return RiSettings3Line
     default: return null
@@ -339,7 +340,7 @@ function Launcher({ period, onOpen }) {
       animate={{ opacity:1 }}
       exit={{ opacity:0 }}
       transition={{ duration:.2 }}
-      style={{ padding:'40px 36px', overflowY:'auto', height:'100%' }}
+      style={{ padding:'40px 36px', overflowY:'auto', height:'100%', paddingBottom:'env(safe-area-inset-bottom, 40px)' }}
     >
       <h1 style={{ fontFamily:'Syne', fontSize:42, fontWeight:700, color:'var(--text-pri)', letterSpacing:'-1px', lineHeight:1.1, marginBottom:6 }}>
         {t(greetingKey, { defaultValue: 'Hello' })}
@@ -459,7 +460,7 @@ function AppWindow({ appId, onClose, onThemeOverride }) {
         </button>
       </div>
 
-      <div style={{ flex:1, overflow:'hidden', position:'relative' }}>
+      <div style={{ flex:1, overflow:'hidden', position:'relative', paddingBottom:'env(safe-area-inset-bottom, 0px)' }}>
         <Suspense fallback={
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-ter)', fontSize:13 }}>
             Loading...
@@ -501,11 +502,11 @@ function AppContent() {
   }, [])
 
   return (
-    <div style={{ width:'100vw', height:'100dvh', background:'var(--bg)', display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
+    <div style={{ width:'100vw', height:'100dvh', background:'var(--bg)', display:'flex', flexDirection:'column', overflow:'hidden', position:'relative', paddingBottom:'env(safe-area-inset-bottom, 20px)' }}>
       <div style={{ position:'absolute', inset:0, background: period.bg, zIndex:0, transition:'background 1.5s ease', pointerEvents:'none' }} />
       <div style={{ position:'absolute', inset:0, background: period.orb, zIndex:0, pointerEvents:'none' }} />
 
-      <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', height:'100%' }}>
+      <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', height:'100%', paddingBottom:'env(safe-area-inset-bottom, 0px)' }}>
         <TopBar period={period} onToggleMenu={() => setMenuOpen(v => !v)} menuOpen={menuOpen} />
 
         <HorizontalMenu activeApp={activeApp} onNavigate={navigate} menuOpen={menuOpen} period={period} onThemeOverride={setOverride} />

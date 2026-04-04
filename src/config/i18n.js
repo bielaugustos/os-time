@@ -4,9 +4,9 @@ import { initReactI18next } from 'react-i18next'
 const resources = {
   en: { translation: {
     greeting: { dawn:'Good early morning', morning:'Good morning', midday:'Good afternoon', afternoon:'Good afternoon', evening:'Good evening', night:'Good night' },
-    nav: { home:'Today', clock:'Clock', notes:'Notes', calculator:'Calculator', energy:'Energy', chat:'IO STUDIO', settings:'Settings' },
-    apps: { clock:'Clock', notes:'Notes', calculator:'Calculator', energy:'Energy', chat:'IO STUDIO', settings:'Settings' },
-    energy: { score:'Score', best:'Best', tapToStart:'Tap to start', gameOver:'Game Over', congratulations:'Congratulations!', instruction:'Tap or click to place blocks' },
+    nav: { home:'Today', clock:'Clock', notes:'Notes', calculator:'Calculator', energy:'Tower', chat:'IO STUDIO', settings:'Settings' },
+    apps: { clock:'Clock', notes:'Notes', calculator:'Calculator', energy:'Tower', chat:'IO STUDIO', settings:'Settings' },
+    energy: { score:'Score', best:'Best', tapToStart:'Tap to start', gameOver:'Game Over', perfect:'Perfect', congratulations:'Congratulations!', instruction:'Tap or click to place blocks' },
      chat: { 
       placeholder:'Descreva a UI que você quer...', 
       send:'Gerar', 
@@ -42,9 +42,9 @@ const resources = {
   }},
   pt: { translation: {
     greeting: { dawn:'Bom amanhecer', morning:'Bom dia', midday:'Boa tarde', afternoon:'Boa tarde', evening:'Boa noite', night:'Boa madrugada' },
-    nav: { home:'Hoje', clock:'Relógio', notes:'Notas', calculator:'Calculadora', energy:'Energia', chat:'IO', settings:'Ajustes' },
-    apps: { clock:'Relógio', notes:'Notas', calculator:'Calculadora', energy:'Energia', chat:'IO', settings:'Ajustes' },
-    energy: { score:'Pontuação', best:'Melhor', tapToStart:'Toque para começar', gameOver:'Fim de Jogo', congratulations:'Parabéns!', instruction:'Toque ou clique para colocar blocos' },
+    nav: { home:'Hoje', clock:'Relógio', notes:'Notas', calculator:'Calculadora', energy:'Torre', chat:'IO', settings:'Ajustes' },
+    apps: { clock:'Relógio', notes:'Notas', calculator:'Calculadora', energy:'Torre', chat:'IO', settings:'Ajustes' },
+    energy: { score:'Pontuação', best:'Melhor', tapToStart:'Toque para começar', gameOver:'Fim de Jogo', perfect:'Perfeito!', congratulations:'Parabéns!', instruction:'Toque ou clique para colocar blocos' },
     chat: { placeholder:'Descreva a UI que você quer...', send:'Gerar', typing:'Criando sua UI...' },
     clock: { worldClock:'Relógio Mundial', stopwatch:'Cronômetro', timer:'Temporizador', alarm:'Alarme', start:'Iniciar', pause:'Pausar', resume:'Retomar', reset:'Reiniciar', lap:'Volta', addAlarm:'Adicionar Alarme', edit:'Editar', delete:'Excluir', save:'Salvar', cancel:'Cancelar', hours:'Horas', minutes:'Minutos', seconds:'Segundos', setTimer:'Definir Temporizador', timeUp:'Tempo esgotado!', alarmSounding:'Alarme!', noAlarms:'Nenhum alarme', laps:'Voltas', alarmName:'Nome do alarme', label:'Rótulo', stop:'Parar' },
     notes: { search:'Buscar...', new:'Nova', untitled:'Sem título', placeholder:'Comece a escrever...' },
@@ -54,9 +54,9 @@ const resources = {
   }},
   es: { translation: {
     greeting: { dawn:'Buenos días temprano', morning:'Buenos días', midday:'Buenas tardes', afternoon:'Buenas tardes', evening:'Buenas noches', night:'Buenas noches' },
-    nav: { home:'Hoy', clock:'Reloj', notes:'Notas', calculator:'Calculadora', energy:'Energía', chat:'IO', settings:'Ajustes' },
-    apps: { clock:'Reloj', notes:'Notas', calculator:'Calculadora', energy:'Energía', chat:'IO', settings:'Ajustes' },
-    energy: { score:'Puntuación', best:'Mejor', tapToStart:'Toca para empezar', gameOver:'Fin del Juego', congratulations:'¡Felicidades!', instruction:'Toca o haz clic para colocar bloques' },
+    nav: { home:'Hoy', clock:'Reloj', notes:'Notas', calculator:'Calculadora', energy:'Torre', chat:'IO', settings:'Ajustes' },
+    apps: { clock:'Reloj', notes:'Notas', calculator:'Calculadora', energy:'Torre', chat:'IO', settings:'Ajustes' },
+    energy: { score:'Puntuación', best:'Mejor', tapToStart:'Toca para empezar', gameOver:'Fin del Juego', perfect:'¡Perfecto!', congratulations:'¡Felicidades!', instruction:'Toca o haz clic para colocar bloques' },
      chat: { 
       placeholder:'Describe la UI que quieres...', 
       send:'Generar', 
@@ -92,9 +92,9 @@ const resources = {
   }},
   fr: { translation: {
     greeting: { dawn:'Bonjour tôt', morning:'Bonjour', midday:'Bon après-midi', afternoon:'Bon après-midi', evening:'Bonsoir', night:'Bonne nuit' },
-    nav: { home:'Aujourd\'hui', clock:'Horloge', notes:'Notes', calculator:'Calculatrice', energy:'Énergie', chat:'IO', settings:'Réglages' },
-    apps: { clock:'Horloge', notes:'Notes', calculator:'Calculatrice', energy:'Énergie', chat:'IO', settings:'Réglages' },
-    energy: { score:'Score', best:'Meilleur', tapToStart:'Touchez pour commencer', gameOver:'Partie Terminée', congratulations:'Félicitations!', instruction:'Touchez ou cliquez pour placer les blocs' },
+    nav: { home:'Aujourd\'hui', clock:'Horloge', notes:'Notes', calculator:'Calculatrice', energy:'Tour', chat:'IO', settings:'Réglages' },
+    apps: { clock:'Horloge', notes:'Notes', calculator:'Calculatrice', energy:'Tour', chat:'IO', settings:'Réglages' },
+    energy: { score:'Score', best:'Meilleur', tapToStart:'Touchez pour commencer', gameOver:'Partie Terminée', perfect:'Parfait!', congratulations:'Félicitations!', instruction:'Touchez ou cliquez pour placer les blocs' },
      chat: { 
       placeholder:'Décrivez l\'interface que vous voulez...', 
       send:'Générer', 

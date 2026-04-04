@@ -1,163 +1,439 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import * as THREE from 'three'
 
-const GRADIENT = {
-  rainbow: ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#b3baff', '#ffbaff'],
-  fade: (color, intensity) => {
-    const hex = color.replace('#', '')
-    let r = parseInt(hex.substring(0, 2), 16)
-    let g = parseInt(hex.substring(2, 4), 16)
-    let b = parseInt(hex.substring(4, 6), 16)
-    r = Math.round(r * (1 - intensity) + 255 * intensity)
-    g = Math.round(g * (1 - intensity) + 255 * intensity)
-    b = Math.round(b * (1 - intensity) + 255 * intensity)
-    return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')
-  }
+const RAINBOW = [0xff6b6b, 0xff9f43, 0xfeca57, 0x48dbf0, 0x1dd1a1, 0x5f27cd, 0xe879f9]
+
+const hexToRgb = (hex) => ({ r: (hex >> 16) & 255, g: (hex >> 8) & 255, b: hex & 255 })
+const rgbToHex = (r, g, b) => (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b)
+const lerpColor = (c1, c2, t) => {
+  const a = hexToRgb(c1), b = hexToRgb(c2)
+  return rgbToHex(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t)
 }
 
-const COLORS = [
-  '#000000',
-  ...Array.from({ length: 100 }, (_, i) => {
-    const colorIndex = i % GRADIENT.rainbow.length
-    const intensity = (i % 20) / 20
-    return GRADIENT.fade(GRADIENT.rainbow[colorIndex], intensity * 0.5)
-  })
-]
+const COLORS = Array.from({ length: 120 }, (_, i) => {
+  const colorIdx = i % RAINBOW.length
+  const nextIdx = (colorIdx + 1) % RAINBOW.length
+  const t = (i % 10) / 10
+  const base = lerpColor(RAINBOW[colorIdx], RAINBOW[nextIdx], t)
+  const rgb = hexToRgb(base)
+  const vibrant = {
+    r: Math.min(255, rgb.r + Math.round((255 - rgb.r) * 0.35)),
+    g: Math.min(255, rgb.g + Math.round((255 - rgb.g) * 0.35)),
+    b: Math.min(255, rgb.b + Math.round((255 - rgb.b) * 0.35))
+  }
+  return rgbToHex(vibrant.r, vibrant.g, vibrant.b)
+})
 
-const TOWER_WIDTH = 80
-const TOWER_HEIGHT = 20
+const BLOCK_SIZE = 3
+const BLOCK_HEIGHT = 0.5
+const SPEED_INITIAL = 0.12
+const SPEED_INCREMENT = 0.002
+const PERFECT_THRESHOLD = 0.1
+const CAMERA_OFFSET = 25
 
 export default function EnergyApp() {
   const { t } = useTranslation()
   const [score, setScore] = useState(0)
   const [perfectCount, setPerfectCount] = useState(0)
   const [gameState, setGameState] = useState('idle')
-  const [blocks, setBlocks] = useState([])
-  const [currentX, setCurrentX] = useState(0)
-  const [direction, setDirection] = useState(1)
-  const [level, setLevel] = useState(1)
-  const [scrollY, setScrollY] = useState(0)
   const [showInstruction, setShowInstruction] = useState(true)
 
-  const currentBlockRef = useRef({ x: 0, w: 4, color: COLORS[0] })
-  const baseBlockRef = useRef({ x: 0, w: 4 })
+  const containerRef = useRef(null)
+  const rendererRef = useRef(null)
+  const sceneRef = useRef(null)
+  const cameraRef = useRef(null)
+  const stackRef = useRef([])
+  const currentBlockRef = useRef(null)
+  const fallingBlocksRef = useRef([])
+  const directionRef = useRef('x')
+  const speedRef = useRef(SPEED_INITIAL)
   const colorIndexRef = useRef(0)
-  const speedRef = useRef(4)
-  const animationRef = useRef(null)
-  const directionRef = useRef(1)
+  const cameraTargetRef = useRef({ x: CAMERA_OFFSET, y: CAMERA_OFFSET, z: CAMERA_OFFSET })
+  const perfectFlashRef = useRef(null)
+  const gameStateRef = useRef(gameState)
 
-  const getColor = (i) => {
-    return COLORS[i % COLORS.length]
-  }
-
-  const RANGE = 4
+  const getColor = (i) => COLORS[i % COLORS.length]
 
   useEffect(() => {
-    const animate = () => {
-      if (gameState === 'playing') {
-        setCurrentX(x => {
-          const newX = x + speedRef.current * directionRef.current * 0.016
-          const limit = RANGE - currentBlockRef.current.w / 2
-          if (newX > limit) {
-            directionRef.current = -1
-            return limit
-          } else if (newX < -limit) {
-            directionRef.current = 1
-            return -limit
-          }
-          return newX
-        })
-      }
-      animationRef.current = requestAnimationFrame(animate)
-    }
-    animate()
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current)
-    }
+    gameStateRef.current = gameState
   }, [gameState])
 
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    const container = containerRef.current
+    const width = container.clientWidth
+    const height = container.clientHeight
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    renderer.setSize(width, height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    container.insertBefore(renderer.domElement, container.firstChild)
+    rendererRef.current = renderer
+
+    const scene = new THREE.Scene()
+    scene.background = null
+    renderer.setClearColor(0x000000, 0)
+    renderer.setClearAlpha(0)
+    scene.fog = new THREE.Fog(0x000000, 20, 60)
+    sceneRef.current = scene
+
+    const aspect = width / height
+    const frustumSize = 11
+    const camera = new THREE.OrthographicCamera(
+      -frustumSize * aspect, frustumSize * aspect,
+      frustumSize * 0.8, -frustumSize * 0.8,
+      0.1, 100
+    )
+    camera.position.set(CAMERA_OFFSET * 0.4, CAMERA_OFFSET * 0.4, CAMERA_OFFSET * 0.4)
+    camera.lookAt(0, -1, 0)
+    cameraRef.current = camera
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7)
+    scene.add(ambientLight)
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8)
+    dirLight.position.set(10, 20, 10)
+    dirLight.castShadow = true
+    dirLight.shadow.mapSize.width = 1024
+    dirLight.shadow.mapSize.height = 1024
+    scene.add(dirLight)
+
+    const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3)
+    dirLight2.position.set(-10, 10, -10)
+    scene.add(dirLight2)
+
+    const pointLight = new THREE.PointLight(0xffffff, 0.5, 50)
+    pointLight.position.set(0, 5, 8)
+    scene.add(pointLight)
+
+    let animationId
+    const animate = () => {
+      animationId = requestAnimationFrame(animate)
+
+      if (gameStateRef.current === 'playing' && currentBlockRef.current && stackRef.current.length > 0) {
+        const cb = currentBlockRef.current
+        const top = stackRef.current[stackRef.current.length - 1]
+        if (!top || !top.mesh) return
+        const range = 5
+
+        if (cb.movingDir === 'x') {
+          cb.mesh.position.x += speedRef.current * cb.direction
+          if (cb.mesh.position.x > top.mesh.position.x + range || cb.mesh.position.x < top.mesh.position.x - range) {
+            cb.direction *= -1
+          }
+        } else {
+          cb.mesh.position.z += speedRef.current * cb.direction
+          if (cb.mesh.position.z > top.mesh.position.z + range || cb.mesh.position.z < top.mesh.position.z - range) {
+            cb.direction *= -1
+          }
+        }
+      }
+
+      fallingBlocksRef.current = fallingBlocksRef.current.filter(fb => {
+        fb.vy -= 0.008
+        fb.mesh.position.y += fb.vy
+        fb.mesh.rotation.x += 0.02
+        fb.mesh.rotation.z += 0.015
+        if (fb.mesh.position.y < -15) {
+          scene.remove(fb.mesh)
+          return false
+        }
+        return true
+      })
+
+      const towerHeight = stackRef.current.length * BLOCK_HEIGHT
+      let focusY = 1
+      
+      if (currentBlockRef.current && gameStateRef.current === 'playing') {
+        focusY = currentBlockRef.current.mesh.position.y
+      } else if (towerHeight > 0) {
+        focusY = towerHeight * 0.5
+      }
+      
+      const camX = 8
+      const camY = 6 + focusY * 0.8
+      const camZ = 8
+      
+      camera.position.set(camX, camY, camZ)
+      camera.lookAt(0, focusY, 0)
+
+      renderer.render(scene, camera)
+    }
+    animate()
+
+    return () => {
+      cancelAnimationFrame(animationId)
+      renderer.dispose()
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement)
+      }
+    }
+  }, [])
+
   const initGame = useCallback(() => {
-    setBlocks([])
+    const scene = sceneRef.current
+    if (!scene) return
+
+    stackRef.current.forEach(b => scene.remove(b.mesh))
+    if (currentBlockRef.current) scene.remove(currentBlockRef.current.mesh)
+    fallingBlocksRef.current.forEach(fb => scene.remove(fb.mesh))
+    stackRef.current = []
+    currentBlockRef.current = null
+    fallingBlocksRef.current = []
+
     setScore(0)
     setPerfectCount(0)
-    setLevel(1)
-    setScrollY(0)
     setShowInstruction(true)
+    setTimeout(() => setShowInstruction(false), 5000)
+
+    speedRef.current = SPEED_INITIAL
+    directionRef.current = 'x'
     colorIndexRef.current = 0
 
-    setTimeout(() => setShowInstruction(false), 5000)
-    speedRef.current = 2
-    directionRef.current = 1
+    const baseGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_HEIGHT, BLOCK_SIZE)
+    const baseMat = new THREE.MeshStandardMaterial({ 
+    color: getColor(0),
+    emissive: getColor(0),
+    emissiveIntensity: 0.15,
+  })
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat)
+    baseMesh.position.set(0, 0, 0)
+    baseMesh.castShadow = true
+    baseMesh.receiveShadow = true
+    scene.add(baseMesh)
+    stackRef.current.push({ mesh: baseMesh, w: BLOCK_SIZE, d: BLOCK_SIZE })
 
-    const base = { x: 0, w: 4, y: 0, color: getColor(0) }
-    baseBlockRef.current = { x: 0, w: 4 }
-    setBlocks([base])
-    colorIndexRef.current = 1
+    spawnBlock()
+  }, [getColor])
 
-    const randomColor = COLORS[Math.floor(Math.random() * (COLORS.length - 1)) + 1]
-    currentBlockRef.current = { x: 0, w: 4, color: randomColor, movingDir: 'x', y: 1 }
-    setCurrentX(0)
+  const spawnBlock = useCallback(() => {
+    const scene = sceneRef.current
+    if (!scene) return
+
+    const top = stackRef.current[stackRef.current.length - 1]
+    const y = top.mesh.position.y + BLOCK_HEIGHT
+    const color = getColor(colorIndexRef.current)
+    const range = 5
+
+    colorIndexRef.current++
+
+    const geo = new THREE.BoxGeometry(top.w, BLOCK_HEIGHT, top.d)
+    const mat = new THREE.MeshStandardMaterial({
+      color: color,
+      roughness: 0.6,
+      metalness: 0,
+    })
+    const mesh = new THREE.Mesh(geo, mat)
+
+    let x = top.mesh.position.x, z = top.mesh.position.z
+    if (directionRef.current === 'x') {
+      x = top.mesh.position.x + range
+      z = top.mesh.position.z
+    } else {
+      x = top.mesh.position.x
+      z = top.mesh.position.z + range
+    }
+
+    mesh.position.set(x, y, z)
+    scene.add(mesh)
+
+    currentBlockRef.current = {
+      mesh,
+      w: top.w,
+      d: top.d,
+      direction: 1,
+      movingDir: directionRef.current
+    }
+
+    directionRef.current = directionRef.current === 'x' ? 'z' : 'x'
+    speedRef.current = SPEED_INITIAL + stackRef.current.length * SPEED_INCREMENT
   }, [getColor])
 
   const placeBlock = useCallback(() => {
-    const top = blocks[blocks.length - 1] || baseBlockRef.current
-    const cb = { ...currentBlockRef.current, x: currentX }
-    const topX = top.x
-    const cbX = cb.x
+    if (!currentBlockRef.current) return
+    if (stackRef.current.length === 0) return
 
-    const overlap = cb.w - Math.abs(cbX - topX)
-    
-    if (overlap <= 0) {
+    const scene = sceneRef.current
+    const top = stackRef.current[stackRef.current.length - 1]
+    const cb = currentBlockRef.current
+    const movingDir = cb.movingDir
+
+    if (!top || !top.mesh) return
+
+    let overlap, offset, newX, newZ, newW, newD
+
+    if (movingDir === 'x') {
+      overlap = cb.w - Math.abs(cb.mesh.position.x - top.mesh.position.x)
+      if (overlap <= 0) {
+        animateGameOver()
+        return
+      }
+      offset = cb.mesh.position.x - top.mesh.position.x
+      newW = overlap
+      newX = top.mesh.position.x + offset / 2
+
+      if (Math.abs(offset) < PERFECT_THRESHOLD) {
+        newW = top.w
+        newX = top.mesh.position.x
+        showPerfect()
+        const cutW = cb.w - top.w
+        const cutX = cb.mesh.position.x > top.mesh.position.x 
+          ? cb.mesh.position.x + cb.w/2 - cutW/2 
+          : cb.mesh.position.x - cb.w/2 + cutW/2
+        createFallingBlock(cutX, top.mesh.position.z, cutW, cb.d, top.mesh.position.y)
+      } else {
+        const cutW = cb.w - overlap
+        const cutX = cb.mesh.position.x > top.mesh.position.x 
+          ? cb.mesh.position.x + cb.w/2 - cutW/2 
+          : cb.mesh.position.x - cb.w/2 + cutW/2
+        createFallingBlock(cutX, top.mesh.position.z, cutW, cb.d, top.mesh.position.y)
+      }
+
+      newZ = top.mesh.position.z
+      newD = cb.d
+    } else {
+      overlap = cb.d - Math.abs(cb.mesh.position.z - top.mesh.position.z)
+      if (overlap <= 0) {
+        animateGameOver()
+        return
+      }
+      offset = cb.mesh.position.z - top.mesh.position.z
+      newD = overlap
+      newZ = top.mesh.position.z + offset / 2
+
+      if (Math.abs(offset) < PERFECT_THRESHOLD) {
+        newD = top.d
+        newZ = top.mesh.position.z
+        showPerfect()
+        const cutD = cb.d - top.d
+        const cutZ = cb.mesh.position.z > top.mesh.position.z 
+          ? cb.mesh.position.z + cb.d/2 - cutD/2 
+          : cb.mesh.position.z - cb.d/2 + cutD/2
+        createFallingBlock(top.mesh.position.x, cutZ, cb.w, cutD, top.mesh.position.y)
+      } else {
+        const cutD = cb.d - overlap
+        const cutZ = cb.mesh.position.z > top.mesh.position.z 
+          ? cb.mesh.position.z + cb.d/2 - cutD/2 
+          : cb.mesh.position.z - cb.d/2 + cutD/2
+        createFallingBlock(top.mesh.position.x, cutZ, cb.w, cutD, top.mesh.position.y)
+      }
+
+      newX = top.mesh.position.x
+      newW = cb.w
+    }
+
+    scene.remove(cb.mesh)
+    const placedGeo = new THREE.BoxGeometry(newW, BLOCK_HEIGHT, newD)
+    const placedMat = new THREE.MeshStandardMaterial({ 
+      color: cb.mesh.material.color,
+      emissive: cb.mesh.material.color,
+      emissiveIntensity: 0.15,
+      roughness: 0.3,
+      metalness: 0.1,
+    })
+    const placedMesh = new THREE.Mesh(placedGeo, placedMat)
+    placedMesh.position.set(newX, cb.mesh.position.y, newZ)
+    placedMesh.castShadow = true
+    placedMesh.receiveShadow = true
+    scene.add(placedMesh)
+    stackRef.current.push({ mesh: placedMesh, w: newW, d: newD })
+
+    setScore(s => s + 1)
+    spawnBlock()
+  }, [spawnBlock])
+
+  const createFallingBlock = (x, z, w, d, y) => {
+    const scene = sceneRef.current
+    if (!scene) return
+
+    const geo = new THREE.BoxGeometry(w, BLOCK_HEIGHT, d)
+    const mat = new THREE.MeshStandardMaterial({ 
+      color: currentBlockRef.current?.mesh.material.color || 0xffffff,
+      emissive: currentBlockRef.current?.mesh.material.color || 0xffffff,
+      emissiveIntensity: 0.1,
+    })
+    const mesh = new THREE.Mesh(geo, mat)
+    mesh.position.set(x, y, z)
+    scene.add(mesh)
+    fallingBlocksRef.current.push({ mesh, vy: 0 })
+  }
+
+  const showPerfect = () => {
+    setPerfectCount(c => c + 1)
+    if (perfectFlashRef.current) {
+      perfectFlashRef.current.style.opacity = '1'
+      setTimeout(() => {
+        if (perfectFlashRef.current) {
+          perfectFlashRef.current.style.transition = 'opacity 0.8s ease-out'
+          perfectFlashRef.current.style.opacity = '0'
+        }
+      }, 3000)
+    }
+  }
+
+  const animateGameOver = useCallback(() => {
+    gameStateRef.current = 'gameover'
+    const scene = sceneRef.current
+    if (!scene || stackRef.current.length === 0) {
       setGameState('gameover')
       return
     }
-
-    let newW = overlap
-    let newX = topX + (cbX - topX) / 2
-
-    if (Math.abs(cbX - topX) < 0.15) {
-      newW = top.w
-      newX = topX
-      setPerfectCount(c => c + 1)
-    }
-
-    const newBlock = {
-      x: newX,
-      w: newW,
-      y: blocks.length,
-      color: currentBlockRef.current.color
-    }
-
-    setBlocks(bs => [...bs, newBlock])
-    setScore(s => s + 1)
-    setLevel(l => l + 1)
-
-    colorIndexRef.current += 1
-    const nextColor = getColor(colorIndexRef.current)
     
-    const newDir = currentBlockRef.current.movingDir === 'x' ? 'z' : 'x'
-    currentBlockRef.current = { 
-      x: 0, 
-      w: newW, 
-      color: nextColor, 
-      movingDir: newDir,
-      y: blocks.length + 1
+    const blocksToAnimate = [...stackRef.current].reverse()
+    
+    if (currentBlockRef.current && currentBlockRef.current.mesh) {
+      const currentBlock = currentBlockRef.current
+      const shrinkCurrent = () => {
+        if (currentBlock.mesh && currentBlock.mesh.scale.x > 0.05) {
+          currentBlock.mesh.scale.multiplyScalar(0.7)
+          requestAnimationFrame(shrinkCurrent)
+        } else if (currentBlock.mesh) {
+          scene.remove(currentBlock.mesh)
+          currentBlockRef.current = null
+          animateStack()
+        }
+      }
+      shrinkCurrent()
+    } else {
+      animateStack()
     }
     
-    setCurrentX(0)
-    speedRef.current = 2 + level * 0.1
-    directionRef.current = 1
-
-    if (blocks.length > 0) {
-      setScrollY(s => s - TOWER_HEIGHT)
+    function animateStack() {
+      let delay = 0
+      blocksToAnimate.forEach((block) => {
+        setTimeout(() => {
+          if (block.mesh) {
+            const shrink = () => {
+              if (block.mesh && block.mesh.scale.x > 0.05) {
+                block.mesh.scale.multiplyScalar(0.7)
+                requestAnimationFrame(shrink)
+              } else if (block.mesh) {
+                scene.remove(block.mesh)
+              }
+            }
+            shrink()
+          }
+        }, delay)
+        delay += 50
+      })
+      
+      setTimeout(() => {
+        setGameState('gameover')
+      }, delay + 200)
     }
-  }, [blocks.length, currentX, level, getColor])
+  }, [])
 
   const handleTap = useCallback(() => {
     if (gameState === 'idle') {
+      gameStateRef.current = 'playing'
       setGameState('playing')
       initGame()
     } else if (gameState === 'gameover') {
+      gameStateRef.current = 'playing'
       setGameState('playing')
       initGame()
     } else if (gameState === 'playing') {
@@ -177,131 +453,107 @@ export default function EnergyApp() {
   }, [handleTap])
 
   useEffect(() => {
-    if (gameState === 'idle') {
-      setScrollY(0)
+    if (gameState === 'idle' && sceneRef.current) {
+      const scene = sceneRef.current
+      stackRef.current.forEach(b => scene.remove(b.mesh))
+      if (currentBlockRef.current) scene.remove(currentBlockRef.current.mesh)
+      fallingBlocksRef.current.forEach(fb => scene.remove(fb.mesh))
+      stackRef.current = []
+      currentBlockRef.current = null
+      fallingBlocksRef.current = []
     }
   }, [gameState])
 
   return (
-    <div style={{ 
-      display:'flex', 
-      flexDirection:'column', 
-      height:'100%', 
-      width:'100%', 
-      position:'relative', 
-      background:'#1a1a2e',
-      cursor: 'pointer',
-      userSelect: 'none',
-    }}
+    <div 
+      ref={containerRef}
+      style={{ 
+        height: '100%', 
+        width: '100%', 
+        position: 'relative', 
+        background: 'transparent',
+        cursor: 'pointer',
+        overflow: 'hidden',
+        margin: 0,
+        padding: 0,
+      }}
       onClick={handleTap}
     >
+      {gameState !== 'idle' && (
       <div style={{
         position:'absolute',
-        top:20,
-        left:'50%',
-        transform:'translateX(-50%)',
-        textAlign:'center',
-        zIndex:10,
+        top: 20,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        textAlign: 'center',
+        zIndex: 10,
+        pointerEvents: 'none',
       }}>
-        <div style={{ fontSize:56, fontWeight:700, color:'#fff', fontFamily:'Syne', lineHeight:1 }}>
+        <div style={{ fontSize: 56, fontWeight: 700, fontFamily: 'Syne', lineHeight: 1, color: 'var(--text-pri)' }}>
           {score}
         </div>
-        <div style={{ fontSize:10, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:4, marginTop:4 }}>
+        <div style={{ fontSize: 10, color: 'var(--text-sec)', textTransform: 'uppercase', letterSpacing: 4, marginTop: 4 }}>
           {t('energy.score').toUpperCase()}
         </div>
       </div>
+      )}
 
-      {perfectCount > 0 && (
+      {gameState !== 'idle' && perfectCount > 0 && (
         <div style={{
-          position:'absolute',
-          top:20,
-          right:20,
-          padding:'10px 16px',
-          borderRadius:12,
-          background:'rgba(255,255,255,0.08)',
-          border:'1px solid rgba(255,255,255,0.15)',
-          zIndex:10,
+          position: 'absolute',
+          top: 20,
+          right: 20,
+          padding: '10px 16px',
+          borderRadius: 12,
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          zIndex: 10,
+          pointerEvents: 'none',
         }}>
-          <div style={{ fontSize:10, color:'rgba(255,255,255,0.4)', textTransform:'uppercase', letterSpacing:2 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-sec)', textTransform: 'uppercase', letterSpacing: 2 }}>
             {t('energy.best').toUpperCase()}
           </div>
-          <div style={{ fontSize:24, fontWeight:700, color:'#f0c040', fontFamily:'Syne', marginTop:2 }}>
+          <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent)', fontFamily: 'Syne', marginTop: 2 }}>
             {perfectCount}
           </div>
         </div>
       )}
 
-      <div style={{
+      <div ref={perfectFlashRef} style={{
         position: 'absolute',
+        top: 95,
         left: '50%',
-        top: `calc(50% - ${scrollY}px)`,
-        width: 0,
-        height: 0,
-        transition: 'top 0.3s ease-out',
+        transform: 'translateX(-50%)',
+        fontSize: 14,
+        fontWeight: 700,
+        letterSpacing: 4,
+        color: 'var(--accent)',
+        opacity: 0,
+        pointerEvents: 'none',
+        transition: 'opacity 0.15s ease-in',
+        zIndex: 20,
+        fontFamily: 'Syne',
       }}>
-        {blocks.slice(0, Math.min(100, blocks.length)).map((block, i) => (
-          <div key={i} style={{
-            position: 'absolute',
-            left: block.x * TOWER_WIDTH - (block.w * TOWER_WIDTH) / 2 + TOWER_WIDTH / 2,
-            top: -(i * TOWER_HEIGHT) - TOWER_HEIGHT,
-            width: block.w * TOWER_WIDTH - 2,
-            height: TOWER_HEIGHT - 2,
-            background: block.color,
-            borderRadius: 4,
-            boxShadow: `0 2px 10px ${block.color}40`,
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: 2,
-              left: 4,
-              right: 4,
-              height: 3,
-              background: 'rgba(255,255,255,0.25)',
-              borderRadius: 1,
-            }} />
-          </div>
-        ))}
-
-        {gameState === 'playing' && currentBlockRef.current && (
-          <div style={{
-            position: 'absolute',
-            left: currentX * TOWER_WIDTH - (currentBlockRef.current.w * TOWER_WIDTH) / 2 + TOWER_WIDTH / 2,
-            top: -(currentBlockRef.current.y * TOWER_HEIGHT) - TOWER_HEIGHT,
-            width: currentBlockRef.current.w * TOWER_WIDTH - 2,
-            height: TOWER_HEIGHT - 2,
-            background: currentBlockRef.current.color,
-            borderRadius: 4,
-            boxShadow: `0 0 20px ${currentBlockRef.current.color}60`,
-            opacity: 0.9,
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: 2,
-              left: 4,
-              right: 4,
-              height: 3,
-              background: 'rgba(255,255,255,0.25)',
-              borderRadius: 1,
-            }} />
-          </div>
-        )}
+        {t('energy.perfect')}
       </div>
 
       {gameState !== 'idle' && (
         <div style={{
           position:'absolute',
-          bottom:30,
-          left:'50%',
-          transform:'translateX(-50%)',
-          padding:'12px 24px',
-          borderRadius:24,
-          background:'rgba(255,255,255,0.15)',
-          border:'1px solid rgba(255,255,255,0.3)',
-          zIndex:15,
-          fontSize:14,
-          color:'#fff',
-          letterSpacing:2,
-          pointerEvents:'none',
+          bottom: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '12px 24px',
+          borderRadius: 24,
+          background: 'rgba(255,255,255,0.1)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          zIndex: 15,
+          color: 'var(--text-sec)',
+          fontSize: 14,
+          letterSpacing: 2,
+          pointerEvents: 'none',
           opacity: showInstruction ? 1 : 0,
           transition: 'opacity 0.5s ease-out',
         }}>
@@ -311,20 +563,23 @@ export default function EnergyApp() {
 
       {gameState === 'idle' && (
         <div style={{
-          position:'absolute',
-          top:0,
-          left:0,
-          right:0,
-          bottom:0,
-          display:'flex',
-          flexDirection:'column',
-          alignItems:'center',
-          justifyContent:'center',
-          background:'rgba(26,26,46,0.95)',
-          zIndex:20,
-          gap:16,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(255,255,255,0.12)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 20,
+          gap: 12,
+          cursor: 'pointer',
         }}>
-          <div style={{ fontSize:13, fontWeight:600, color:'#fff', fontFamily:'Syne', letterSpacing:3 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Syne', letterSpacing: 3, color: 'var(--text-pri)' }}>
             {t('energy.tapToStart').toUpperCase()}
           </div>
         </div>
@@ -332,42 +587,45 @@ export default function EnergyApp() {
 
       {gameState === 'gameover' && (
         <div style={{
-          position:'absolute',
-          top:0,
-          left:0,
-          right:0,
-          bottom:0,
-          display:'flex',
-          flexDirection:'column',
-          alignItems:'center',
-          justifyContent:'center',
-          background:'rgba(26,26,46,0.95)',
-          zIndex:20,
-          gap:16,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(255,255,255,0.12)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 20,
+          gap: 12,
+          cursor: 'pointer',
         }}>
-          <div style={{ fontSize:32, fontWeight:700, color:'#fff', fontFamily:'Syne' }}>
+          <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'Syne', color: 'var(--text-pri)' }}>
             {t('energy.gameOver')}
           </div>
-          <div style={{ marginBottom:24 }} />
-          <div style={{ fontSize:11, letterSpacing:3, color:'rgba(255,255,255,0.4)', marginBottom:6 }}>
+          <div style={{ marginBottom: 16 }} />
+          <div style={{ fontSize: 10, letterSpacing: 3, color: 'var(--text-sec)', marginBottom: 4 }}>
             {t('energy.score').toUpperCase()}
           </div>
-          <div style={{ fontSize:64, fontWeight:700, color:'#fff', fontFamily:'Syne', marginBottom:6 }}>
+          <div style={{ fontSize: 48, fontWeight: 700, fontFamily: 'Syne', marginBottom: 4, color: 'var(--text-pri)' }}>
             {score}
           </div>
           <div style={{
-            fontSize:14,
-            color:'#f0c040',
-            letterSpacing:2,
-            marginBottom:40,
+            fontSize: 12,
+            color: 'var(--accent)',
+            letterSpacing: 2,
+            marginBottom: 32,
           }}>
-            {perfectCount} {t('energy.best').toUpperCase()}
+            {perfectCount} {t('energy.perfect')}
           </div>
           <div style={{
-            fontSize:13,
-            letterSpacing:3,
-            color:'rgba(255,255,255,0.6)',
-            animation:'blink 1.4s infinite',
+            fontSize: 12,
+            letterSpacing: 3,
+            color: 'var(--text-sec)',
+            animation: 'blink 1.4s infinite',
           }}>
             {t('energy.tapToStart')}
           </div>
@@ -378,6 +636,10 @@ export default function EnergyApp() {
         @keyframes blink {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.3; }
+        }
+        #energy-canvas {
+          margin: 0 !important;
+          padding: 0 !important;
         }
       `}</style>
     </div>
