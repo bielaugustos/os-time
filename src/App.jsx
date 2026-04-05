@@ -19,6 +19,7 @@ import {
   RiStackLine,
   RiNotification3Line,
   RiTimerLine,
+  RiArtboardLine,
 } from '@remixicon/react'
 
 function getIconForId(id) {
@@ -26,6 +27,7 @@ function getIconForId(id) {
     case 'home': return RiHome4Line
     case 'clock': return RiTimeLine
     case 'notes': return RiFileTextLine
+    case 'quadro': return RiArtboardLine
     case 'calculator': return RiCalculatorLine
     case 'energy': return RiStackLine
     case 'chat': return RiMagicLine
@@ -534,6 +536,7 @@ function AppContent() {
       if (e.key === '4') setActiveApp('energy')
       if (e.key === '5') setActiveApp('chat')
       if (e.key === '6') setActiveApp('settings')
+      if (e.key === '7') setActiveApp('quadro')
       if (e.ctrlKey && e.key === ',') { e.preventDefault(); setActiveApp('settings') }
       if (e.ctrlKey && e.key === 'n') { e.preventDefault(); setActiveApp('notes') }
     }
