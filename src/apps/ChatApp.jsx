@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { RiChat3Line } from '@remixicon/react'
+import { RiChat3Line, RiCloseLine } from '@remixicon/react'
 
 const INTENT_PATTERNS = [
   {
@@ -35,7 +35,7 @@ const INTENT_PATTERNS = [
   },
 ]
 
-export default function ChatApp() {
+export default function ChatApp({ onClose, isSplitMode }) {
   const { t } = useTranslation()
   const [messages, setMessages] = useState([{ type: 'ai', content: t('chat.intro') }])
   const [inputValue, setInputValue] = useState('')
@@ -122,34 +122,56 @@ export default function ChatApp() {
   }
   
   return (
-    <>
+    <div style={{ 
+      display:'flex', 
+      flexDirection:'column', 
+      height:'100%',
+      background:'var(--bg)',
+    }}>
+      {!isSplitMode && (
+        <div style={{ 
+          display:'flex', 
+          alignItems:'center',
+          padding:'12px 20px', 
+          borderBottom:'1px solid var(--border)',
+          background:'var(--surface)',
+        }}>
+          <button 
+            onClick={onClose}
+            style={{
+              width:28, height:28, borderRadius:7, border:'1px solid var(--border)',
+              background:'var(--surface)', cursor:'pointer', color:'var(--text-sec)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              transition:'all .12s', flexShrink:0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <RiCloseLine size={14} />
+          </button>
+        </div>
+      )}
       <div style={{ 
-        display:'flex', 
-        flexDirection:'column', 
-        height:'100%',
-        background:'var(--bg)',
+        flex:1,
+        overflowY:'auto',
+        padding: isSplitMode ? '12px 20px' : '20px',
       }}>
         <div style={{ 
-          flex:1,
-          overflowY:'auto',
-          padding:'20px',
+          textAlign:'center',
+          padding:'40px 20px',
+          marginBottom:24,
+          background:'var(--surface)',
+          border:'1px solid var(--border)',
+          borderRadius:12,
         }}>
-          <div style={{ 
-            textAlign:'center',
-            padding:'40px 20px',
-            marginBottom:24,
-            background:'var(--surface)',
-            border:'1px solid var(--border)',
-            borderRadius:12,
-          }}>
-            <div style={{ fontSize: 48, marginBottom:16 }}><RiChat3Line size={48} color="var(--accent)" /></div>
-            <div style={{ fontSize: 18, color:'var(--text-sec)', marginBottom:8 }}>
-              {t('chat.placeholder')}
-            </div>
-            <div style={{ fontSize: 13, color:'var(--text-ter)' }}>
-              {t('chat.examplesPrompt')}
-            </div>
+          <div style={{ fontSize: 48, marginBottom:16 }}><RiChat3Line size={48} color="var(--accent)" /></div>
+          <div style={{ fontSize: 18, color:'var(--text-sec)', marginBottom:8 }}>
+            {t('chat.placeholder')}
           </div>
+          <div style={{ fontSize: 13, color:'var(--text-ter)' }}>
+            {t('chat.examplesPrompt')}
+          </div>
+        </div>
           
           <div style={{ fontSize:12, color:'var(--text-ter)', textTransform:'uppercase', letterSpacing:1.5, fontWeight:600, marginBottom:12, padding:'20px 0 10px' }}>
             {t('chat.examplesTitle')}
@@ -247,7 +269,7 @@ export default function ChatApp() {
         </div>
         
         <div style={{
-          padding:'16px',
+          padding:'16px 20px',
           borderTop:'1px solid var(--border)',
           background:'var(--surface)',
         }}>
@@ -299,8 +321,7 @@ export default function ChatApp() {
             {t('chat.send')}
           </button>
         </div>
-      </div>
-    </>
+    </div>
   )
 }
 

@@ -20,7 +20,7 @@ const COLORS = [
   '#00ff00', '#00ffff', '#0000ff', '#8000ff', '#ff00ff',
 ]
 
-export default function QuadroApp() {
+export default function QuadroApp({ onClose, isSplitMode }) {
   const { t } = useTranslation()
   const canvasRef = useRef(null)
   const svgRef = useRef(null)
@@ -296,10 +296,28 @@ export default function QuadroApp() {
   return (
     <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', background:'var(--bg)' }}>
       <div style={{
-        display:'flex', alignItems:'center', gap:8, padding:'8px 12px',
+        display:'flex', alignItems:'center', gap:8, padding:'8px 20px',
         borderBottom:'1px solid var(--border)', flexWrap:'wrap',
         background:'var(--surface)',
       }}>
+        {!isSplitMode && (
+          <button 
+            onClick={onClose}
+            style={{
+              width:28, height:28, borderRadius:7, border:'1px solid var(--border)',
+              background:'var(--surface)', cursor:'pointer', color:'var(--text-sec)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              transition:'all .12s', flexShrink:0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            ×
+          </button>
+        )}
+
+        {!isSplitMode && <div style={{ width:1, height:24, background:'var(--border)' }} />}
+
         <div style={{ display:'flex', gap:4 }}>
           <ToolButton id={TOOLS.pan} icon="✋" label={t('quadro.pan')} />
           <ToolButton id={TOOLS.select} icon="⬚" label={t('quadro.select')} />

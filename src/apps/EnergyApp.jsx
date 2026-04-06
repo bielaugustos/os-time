@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import { RiCloseLine } from '@remixicon/react'
 import * as THREE from 'three'
 
 const RAINBOW = [0xff6b6b, 0xff9f43, 0xfeca57, 0x48dbf0, 0x1dd1a1, 0x5f27cd, 0xe879f9]
@@ -32,7 +33,7 @@ const SPEED_INCREMENT = 0.002
 const PERFECT_THRESHOLD = 0.1
 const CAMERA_OFFSET = 25
 
-export default function EnergyApp() {
+export default function EnergyApp({ onClose, isSplitMode }) {
   const { t } = useTranslation()
   const [score, setScore] = useState(0)
   const [perfectCount, setPerfectCount] = useState(0)
@@ -479,6 +480,23 @@ export default function EnergyApp() {
       }}
       onClick={handleTap}
     >
+      {!isSplitMode && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onClose() }}
+          style={{
+            position: 'absolute', top: 12, left: 20, zIndex: 100,
+            width: 28, height: 28, borderRadius: 7, border: '1px solid rgba(255,255,255,0.2)',
+            background: 'rgba(0,0,0,0.5)', cursor: 'pointer', color: 'var(--text-sec)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all .12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.7)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+        >
+          <RiCloseLine size={14} />
+        </button>
+      )}
+
       {gameState !== 'idle' && (
       <div style={{
         position:'absolute',

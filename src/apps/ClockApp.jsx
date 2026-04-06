@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from '../hooks/useTheme'
 import { 
@@ -14,6 +15,7 @@ import {
   RiFireLine,
   RiCalendarLine,
   RiAddCircleLine,
+  RiSubtractLine,
   RiEdit2Line,
   RiNotification3Line,
   RiCloseLine,
@@ -280,17 +282,17 @@ function StopwatchTimer() {
             {!timerRunning && timerTime === 0 && (<div style={{ display:'flex', gap:8, alignItems:'center' }}>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 <label style={{ fontSize:10, color:'var(--text-ter)' }}>{t('clock.hours')}</label>
-                <input type="number" min="0" max="23" value={timerInput.h} onChange={e => setTimerInput({...timerInput, h: Math.max(0, Math.min(23, parseInt(e.target.value) || 0))})} style={{ width:60, padding:'8px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18, textAlign:'center' }} />
+                <input type="number" min="0" max="23" value={timerInput.h} onChange={e => setTimerInput({...timerInput, h: Math.max(0, Math.min(23, parseInt(e.target.value) || 0))})} onKeyDown={e => e.stopPropagation()} style={{ width:60, padding:'10px 8px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18, textAlign:'center', WebkitAppearance:'none', MozAppearance:'textfield' }} />
               </div>
               <span style={{ fontSize:24, color:'var(--text-ter)', marginTop:16 }}>:</span>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 <label style={{ fontSize:10, color:'var(--text-ter)' }}>{t('clock.minutes')}</label>
-                <input type="number" min="0" max="59" value={timerInput.m} onChange={e => setTimerInput({...timerInput, m: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})} style={{ width:60, padding:'8px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18, textAlign:'center' }} />
+                <input type="number" min="0" max="59" value={timerInput.m} onChange={e => setTimerInput({...timerInput, m: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})} onKeyDown={e => e.stopPropagation()} style={{ width:60, padding:'10px 8px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18, textAlign:'center', WebkitAppearance:'none', MozAppearance:'textfield' }} />
               </div>
               <span style={{ fontSize:24, color:'var(--text-ter)', marginTop:16 }}>:</span>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 <label style={{ fontSize:10, color:'var(--text-ter)' }}>{t('clock.seconds')}</label>
-                <input type="number" min="0" max="59" value={timerInput.s} onChange={e => setTimerInput({...timerInput, s: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})} style={{ width:60, padding:'8px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18, textAlign:'center' }} />
+                <input type="number" min="0" max="59" value={timerInput.s} onChange={e => setTimerInput({...timerInput, s: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})} onKeyDown={e => e.stopPropagation()} style={{ width:60, padding:'10px 8px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18, textAlign:'center', WebkitAppearance:'none', MozAppearance:'textfield' }} />
               </div>
             </div>)}
             <div style={{ display:'flex', gap:12 }}>
@@ -466,11 +468,21 @@ function Pomodoro() {
     return '#10b981'
   }
 
+  const isWorkActive = mode === 'work' || showAddForm
+
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', height:'100%', gap:16, padding:20, width:'100%', overflow:'auto' }}>
       <div style={{ display:'flex', gap:4, padding:'4px', borderRadius:10, background:'var(--surface)' }}>
         <button 
-          onClick={() => { setEditingTask(!editingTask); setEditingTime(false) }} 
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            if (showAddForm) {
+              setEditingTask(true)
+            } else {
+              setEditingTask(!editingTask); 
+              setEditingTime(false)
+            }
+          }} 
           style={{ 
             padding:'10px 20px', 
             borderRadius:10, 
@@ -479,8 +491,8 @@ function Pomodoro() {
             fontFamily:'var(--font-display)', 
             fontSize:14, 
             fontWeight:600, 
-            background: mode === 'work' ? 'var(--accent)' : 'transparent', 
-            color: mode === 'work' ? '#fff' : 'var(--text-sec)', 
+            background: isWorkActive ? 'var(--accent)' : 'transparent', 
+            color: isWorkActive ? '#fff' : 'var(--text-sec)', 
             transition:'all .15s',
             position:'relative',
             display:'flex',
@@ -488,13 +500,13 @@ function Pomodoro() {
             gap:8
           }}
         >
-          {mode === 'work' ? (editingTask ? (
+          {isWorkActive ? (editingTask ? (
             <input 
               type="text" 
               value={taskName}
               onChange={e => setTaskName(e.target.value)}
               onBlur={() => setEditingTask(false)}
-              onKeyDown={e => e.key === 'Enter' && setEditingTask(false)}
+              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') setEditingTask(false) }}
               autoFocus
               style={{
                 background:'transparent', border:'none', color:'#fff', fontFamily:'var(--font-display)', 
@@ -502,8 +514,26 @@ function Pomodoro() {
               }}
               placeholder={t('clock.pomodoroWork')}
             />
-          ) : taskName || t('clock.pomodoroWork')) : t('clock.pomodoroWork')}
-          <span onClick={(e) => { e.stopPropagation(); setShowAddForm(!showAddForm) }} style={{ marginLeft:4, cursor:'pointer', display:'flex', alignItems:'center', gap:2 }}>
+          ) : (
+            <span 
+              onClick={(e) => { e.stopPropagation(); setEditingTask(true); setEditingTime(false) }}
+              style={{ cursor:'pointer' }}
+            >
+              {taskName || t('clock.pomodoroWork')}
+            </span>
+          )) : t('clock.pomodoroWork')}
+          <span 
+            onClick={(e) => { e.stopPropagation(); setShowAddForm(!showAddForm) }} 
+            style={{ 
+              marginLeft:4, 
+              cursor:'pointer', 
+              display:'flex', 
+              alignItems:'center', 
+              gap:2,
+              color: showAddForm ? '#fff' : 'currentColor',
+              transition:'color .15s'
+            }}
+          >
             <RiAddCircleLine size={14} />
           </span>
         </button>
@@ -524,13 +554,16 @@ function Pomodoro() {
             value={customMinutes}
             onChange={e => handleTimeEdit(e.target.value)}
             onBlur={() => setEditingTime(false)}
-            onKeyDown={e => e.key === 'Enter' && setEditingTime(false)}
+            onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') setEditingTime(false) }}
             autoFocus
             style={{
               fontFamily:'var(--font-mono)', fontSize:48, fontWeight:300, 
               color:'var(--text-pri)', letterSpacing:-2, lineHeight:1,
               width:120, textAlign:'center', background:'var(--surface)', 
-              border:'1px solid var(--accent)', borderRadius:8, padding:'4px'
+              border:'1px solid var(--accent)', borderRadius:8, padding:'4px',
+              outline:'none',
+              WebkitAppearance:'none',
+              MozAppearance:'textfield',
             }}
           />
         ) : (
@@ -587,8 +620,9 @@ function Pomodoro() {
                 type="text" 
                 value={newPomodoro.name} 
                 onChange={e => setNewPomodoro({...newPomodoro, name: e.target.value})} 
+                onKeyDown={e => e.stopPropagation()}
                 placeholder={t('clock.pomodoroWork')}
-                style={{ width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-body)', fontSize:13 }}
+                style={{ width:'100%', padding:'12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-body)', fontSize:16 }}
               />
             </div>
             <div style={{ display:'flex', gap:12 }}>
@@ -600,7 +634,8 @@ function Pomodoro() {
                   max="180"
                   value={newPomodoro.minutes} 
                   onChange={e => setNewPomodoro({...newPomodoro, minutes: Math.max(1, Math.min(180, parseInt(e.target.value) || 25))})} 
-                  style={{ width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:13 }}
+                  onKeyDown={e => e.stopPropagation()}
+                  style={{ width:'100%', padding:'12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:16, WebkitAppearance:'none', MozAppearance:'textfield' }}
                 />
               </div>
               <div style={{ flex:1 }}>
@@ -611,7 +646,8 @@ function Pomodoro() {
                   max="10"
                   value={newPomodoro.reps} 
                   onChange={e => setNewPomodoro({...newPomodoro, reps: Math.max(1, Math.min(10, parseInt(e.target.value) || 1))})} 
-                  style={{ width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:13 }}
+                  onKeyDown={e => e.stopPropagation()}
+                  style={{ width:'100%', padding:'12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:16, WebkitAppearance:'none', MozAppearance:'textfield' }}
                 />
               </div>
             </div>
@@ -902,14 +938,19 @@ function Pomodoro() {
   )
 }
 
+const STORAGE_KEY_ALARM = 'clock_alarms'
+
 function Alarm() {
   const { t } = useTranslation()
   const [alarms, setAlarms] = useState([])
-  const [newAlarm, setNewAlarm] = useState({ h:7, m:0, label:'' })
-  const [editingId, setEditingId] = useState(null)
+  const [newAlarm, setNewAlarm] = useState({ h:7, m:0, label:'', days:[0,1,2,3,4,5,6] })
+  const [showForm, setShowForm] = useState(false)
   const [soundingAlarm, setSoundingAlarm] = useState(null)
   const [now, setNow] = useState(new Date())
-  const audioRef = useRef(null)
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_ALARM, JSON.stringify(alarms))
+  }, [alarms])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -925,16 +966,50 @@ function Alarm() {
     return () => clearInterval(id)
   }, [alarms])
 
+  const weekdays = [
+    { key: 'sun', label: t('clock.weekdaySun'), day: 0 },
+    { key: 'mon', label: t('clock.weekdayMon'), day: 1 },
+    { key: 'tue', label: t('clock.weekdayTue'), day: 2 },
+    { key: 'wed', label: t('clock.weekdayWed'), day: 3 },
+    { key: 'thu', label: t('clock.weekdayThu'), day: 4 },
+    { key: 'fri', label: t('clock.weekdayFri'), day: 5 },
+    { key: 'sat', label: t('clock.weekdaySat'), day: 6 },
+  ]
+
+  const toggleDay = (day) => {
+    setNewAlarm(prev => {
+      if (prev.days.includes(day)) {
+        if (prev.days.length === 1) return prev
+        return { ...prev, days: prev.days.filter(d => d !== day) }
+      }
+      return { ...prev, days: [...prev.days, day].sort() }
+    })
+  }
+
+  const adjustTime = (type, delta) => {
+    setNewAlarm(prev => {
+      if (type === 'h') {
+        const newH = (prev.h + delta + 24) % 24
+        return { ...prev, h: newH }
+      } else {
+        const newM = (prev.m + delta + 60) % 60
+        return { ...prev, m: newM }
+      }
+    })
+  }
+
   const handleAddAlarm = () => {
-    if (newAlarm.h !== '' && newAlarm.m !== '') {
+    if (newAlarm.h !== '' && newAlarm.m !== '' && newAlarm.days.length > 0) {
       setAlarms(prev => [...prev, {
         id: Date.now(),
         h: parseInt(newAlarm.h),
         m: parseInt(newAlarm.m),
         label: newAlarm.label,
-        enabled: true
+        enabled: true,
+        days: newAlarm.days
       }])
-      setNewAlarm({ h:7, m:0, label:'' })
+      setNewAlarm({ h:7, m:0, label:'', days:[0,1,2,3,4,5,6] })
+      setShowForm(false)
     }
   }
 
@@ -954,9 +1029,28 @@ function Alarm() {
   }
 
   const pad = n => String(n).padStart(2, '0')
+  const sortedAlarms = [...alarms].sort((a, b) => a.h * 60 + a.m - (b.h * 60 + b.m))
+
+  const getNextAlarmDay = (days) => {
+    const today = new Date().getDay()
+    for (let i = 0; i < 7; i++) {
+      const day = (today + i) % 7
+      if (days.includes(day)) {
+        return weekdays.find(w => w.day === day)?.label || ''
+      }
+    }
+    return ''
+  }
+
+  const formatDays = (days) => {
+    if (days.length === 7) return t('clock.everyDay')
+    if (days.length === 5 && !days.includes(0) && !days.includes(6)) return t('clock.weekdays')
+    if (days.length === 2 && days.includes(0) && days.includes(6)) return t('clock.weekends')
+    return days.map(d => weekdays.find(w => w.day === d)?.label || '').join(', ')
+  }
 
   return (
-    <div style={{ height:'100%', overflowY:'auto', padding:'4px 24px 48px', scrollbarWidth:'thin' }}>
+    <div style={{ height:'100%', overflowY:'auto', scrollbarWidth:'thin' }}>
       {soundingAlarm && (
         <div style={{
           position:'fixed', top:0, left:0, right:0, bottom:0, zIndex:1000,
@@ -978,137 +1072,217 @@ function Alarm() {
         </div>
       )}
 
-      <SectionLabel>{t('clock.addAlarm')}</SectionLabel>
-      
-      <div style={{
-        padding:'14px', borderRadius:12, background:'var(--surface)',
-        border:'1px solid var(--border)', marginBottom:4,
-      }}>
-        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:10 }}>
-          <div style={{ flex:1 }}>
-            <label style={{ fontSize:10, color:'var(--text-ter)', display:'block', marginBottom:4, fontWeight:500 }}>
-              {t('clock.hours')}
-            </label>
-            <input 
-              type="number" 
-              min="0" 
-              max="23" 
-              value={newAlarm.h} 
-              onChange={e => setNewAlarm({...newAlarm, h: Math.max(0, Math.min(23, parseInt(e.target.value) || 0))})} 
-              style={{
-                width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)',
-                background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18,
-                transition:'all .15s',
-              }}
-              onFocus={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-              onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
-            />
-          </div>
-          
-          <span style={{ fontSize:24, color:'var(--text-ter)', marginTop:18 }}>:</span>
-          
-          <div style={{ flex:1 }}>
-            <label style={{ fontSize:10, color:'var(--text-ter)', display:'block', marginBottom:4, fontWeight:500 }}>
-              {t('clock.minutes')}
-            </label>
-            <input 
-              type="number" 
-              min="0" 
-              max="59" 
-              value={newAlarm.m} 
-              onChange={e => setNewAlarm({...newAlarm, m: Math.max(0, Math.min(59, parseInt(e.target.value) || 0))})} 
-              style={{
-                width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid var(--border)',
-                background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-mono)', fontSize:18,
-                transition:'all .15s',
-              }}
-              onFocus={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-              onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
-            />
-          </div>
+      <div style={{ padding:'20px 20px 8px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <div style={{ fontSize:12, fontWeight:600, color:'var(--text-ter)', textTransform:'uppercase', letterSpacing:1.5 }}>
+          {t('clock.alarm')}
         </div>
-        
-        <div style={{ marginBottom:10 }}>
-          <label style={{ fontSize:10, color:'var(--text-ter)', display:'block', marginBottom:4, fontWeight:500 }}>
-            {t('clock.alarmName')}
-          </label>
-          <input 
-            type="text" 
-            placeholder={t('clock.alarmName')} 
-            value={newAlarm.label} 
-            onChange={e => setNewAlarm({...newAlarm, label: e.target.value})} 
-            style={{
-              width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)',
-              background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-body)', fontSize:13,
-              transition:'all .15s',
-            }}
-            onFocus={e => e.currentTarget.style.borderColor = 'var(--accent)'}
-            onBlur={e => e.currentTarget.style.borderColor = 'var(--border)'}
-          />
-        </div>
-
         <button 
-          onClick={handleAddAlarm} 
+          onClick={() => setShowForm(!showForm)}
           style={{
-            width:'100%', padding:'10px 20px', borderRadius:8, border:'none', cursor:'pointer',
-            fontFamily:'var(--font-body)', fontSize:13, fontWeight:600,
-            background:'var(--accent)', color:'#fff',
-            transition:'all .15s',
-          }} 
-          onMouseEnter={e => e.currentTarget.style.opacity = 0.9} 
-          onMouseLeave={e => e.currentTarget.style.opacity = 1}
+            width:40, height:40, borderRadius:12, border:'none',
+            background: showForm ? 'var(--accent)' : 'var(--surface)',
+            color: showForm ? '#fff' : 'var(--text-sec)',
+            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+            transition:'all .2s',
+          }}
         >
-          {t('clock.addAlarm')}
+          <RiAddCircleLine size={22} />
         </button>
       </div>
 
-      <Divider />
+      {showForm && (
+        <motion.div 
+          initial={{ opacity:0, y:-10 }}
+          animate={{ opacity:1, y:0 }}
+          exit={{ opacity:0, y:-10 }}
+          style={{ padding:'0 20px 20px', overflow:'hidden' }}
+        >
+          <div style={{
+            padding:24, borderRadius:20, background:'var(--surface)',
+            border:'1px solid var(--border)',
+          }}>
+            <div style={{ marginBottom:24 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:16, marginBottom:8 }}>
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                  <button 
+                    onClick={() => adjustTime('h', 1)}
+                    style={{ width:56, height:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-sec)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
+                    onMouseDown={e => e.currentTarget.style.background = 'var(--accent)'}
+                    onMouseUp={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                  >
+                    <RiAddCircleLine size={18} />
+                  </button>
+                  <div style={{ 
+                    fontFamily:'var(--font-mono)', fontSize:48, fontWeight:300, 
+                    color:'var(--text-pri)', letterSpacing:-2, lineHeight:1, padding:'12px 0',
+                    minWidth:80, textAlign:'center'
+                  }}>
+                    {pad(newAlarm.h)}
+                  </div>
+                  <button 
+                    onClick={() => adjustTime('h', -1)}
+                    style={{ width:56, height:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-sec)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
+                    onMouseDown={e => e.currentTarget.style.background = 'var(--accent)'}
+                    onMouseUp={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                  >
+                    <RiSubtractLine size={18} />
+                  </button>
+                </div>
 
-      <SectionLabel>{alarms.length === 0 ? t('clock.noAlarms') : `${alarms.length} ${t('clock.alarm')}${alarms.length > 1 ? 's' : ''}`}</SectionLabel>
+                <span style={{ fontSize:40, color:'var(--text-ter)', fontWeight:200, marginTop:-24 }}>:</span>
+
+                <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
+                  <button 
+                    onClick={() => adjustTime('m', 1)}
+                    style={{ width:56, height:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-sec)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
+                    onMouseDown={e => e.currentTarget.style.background = 'var(--accent)'}
+                    onMouseUp={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                  >
+                    <RiAddCircleLine size={18} />
+                  </button>
+                  <div style={{ 
+                    fontFamily:'var(--font-mono)', fontSize:48, fontWeight:300, 
+                    color:'var(--text-pri)', letterSpacing:-2, lineHeight:1, padding:'12px 0',
+                    minWidth:80, textAlign:'center'
+                  }}>
+                    {pad(newAlarm.m)}
+                  </div>
+                  <button 
+                    onClick={() => adjustTime('m', -1)}
+                    style={{ width:56, height:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--surface-hover)', color:'var(--text-sec)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
+                    onMouseDown={e => e.currentTarget.style.background = 'var(--accent)'}
+                    onMouseUp={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+                  >
+                    <RiSubtractLine size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'var(--text-ter)', textTransform:'uppercase', letterSpacing:1, marginBottom:10, textAlign:'center' }}>
+                {t('clock.repeat')}
+              </div>
+              <div style={{ display:'flex', justifyContent:'center', gap:6 }}>
+                {weekdays.map(({ key, label, day }) => (
+                  <button
+                    key={key}
+                    onClick={() => toggleDay(day)}
+                    style={{
+                      width:40, height:40, borderRadius:'50%', border:'none',
+                      background: newAlarm.days.includes(day) ? 'var(--accent)' : 'var(--surface-hover)',
+                      color: newAlarm.days.includes(day) ? '#fff' : 'var(--text-ter)',
+                      cursor:'pointer', fontSize:12, fontWeight:600,
+                      transition:'all .2s',
+                      boxShadow: newAlarm.days.includes(day) ? `0 2px 8px ${getComputedStyle(document.documentElement).getPropertyValue('--accent')}40` : 'none',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <input 
+              type="text" 
+              placeholder={t('clock.alarmName')} 
+              value={newAlarm.label} 
+              onChange={e => setNewAlarm({...newAlarm, label: e.target.value})} 
+              onKeyDown={e => e.stopPropagation()}
+              style={{
+                width:'100%', padding:'14px 16px', borderRadius:12, border:'1px solid var(--border)',
+                background:'var(--surface-hover)', color:'var(--text-pri)', fontFamily:'var(--font-body)', fontSize:15,
+                transition:'all .15s', marginBottom:16, boxSizing:'border-box',
+              }}
+            />
+
+            <button 
+              onClick={handleAddAlarm} 
+              style={{
+                width:'100%', padding:'14px 20px', borderRadius:12, border:'none', cursor:'pointer',
+                fontFamily:'var(--font-display)', fontSize:14, fontWeight:600,
+                background:'var(--accent)', color:'#fff',
+                transition:'all .15s',
+              }} 
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'} 
+              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              {t('clock.addAlarm')}
+            </button>
+          </div>
+        </motion.div>
+      )}
       
-      {alarms.length === 0 ? (
+      {sortedAlarms.length === 0 ? (
         <div style={{
-          padding:'40px 20px', borderRadius:12, background:'var(--surface)',
-          border:'1px solid var(--border)', textAlign:'center',
+          padding:'60px 40px', textAlign:'center',
         }}>
-          <RiAlarmWarningLine size={48} color="var(--text-ter)" style={{ marginBottom:12 }} />
-          <div style={{ fontSize:13, color:'var(--text-sec)', fontFamily:'var(--font-body)' }}>
+          <div style={{ 
+            width:80, height:80, borderRadius:'50%', background:'var(--surface)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            margin:'0 auto 16px', border:'1px solid var(--border)'
+          }}>
+            <RiAlarmLine size={32} color="var(--text-ter)" />
+          </div>
+          <div style={{ fontSize:15, fontWeight:500, color:'var(--text-pri)', marginBottom:6 }}>
             {t('clock.noAlarms')}
+          </div>
+          <div style={{ fontSize:13, color:'var(--text-ter)' }}>
+            {t('clock.tapToCreateAlarm')}
           </div>
         </div>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          {alarms.map(alarm => (
-            <div key={alarm.id} style={{
-              display:'flex', alignItems:'center', gap:12, padding:'13px 14px',
-              borderRadius:10, background:'var(--surface)', border:`1px solid ${alarm.enabled ? 'rgba(96,165,250,0.25)' : 'var(--border)'}`,
-              transition:'all .15s',
-            }} onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}>
+        <div style={{ padding:'8px 20px 48px', display:'flex', flexDirection:'column', gap:8 }}>
+          {sortedAlarms.map(alarm => (
+            <motion.div 
+              key={alarm.id} 
+              initial={{ opacity:0, x:-20 }}
+              animate={{ opacity:1, x:0 }}
+              exit={{ opacity:0, x:20 }}
+              layout
+              style={{
+                display:'flex', alignItems:'center', gap:16, padding:'16px 20px',
+                borderRadius:16, background:'var(--surface)', 
+                border:`1px solid ${alarm.enabled ? 'rgba(96,165,250,0.2)' : 'var(--border)'}`,
+                transition:'all .2s',
+              }}
+            >
               <button 
                 onClick={() => handleToggleAlarm(alarm.id)} 
                 style={{
-                  width:38, height:20, borderRadius:10, border:'none', cursor:'pointer',
-                  background: alarm.enabled ? 'var(--accent)' : 'var(--border)',
-                  position:'relative', transition:'background .2s', flexShrink:0,
+                  width:52, height:28, borderRadius:14, border:'none', cursor:'pointer',
+                  background: alarm.enabled ? 'var(--accent)' : 'rgba(255,255,255,0.1)',
+                  position:'relative', transition:'all .3s', flexShrink:0,
+                  boxShadow: alarm.enabled ? `0 2px 8px ${getComputedStyle(document.documentElement).getPropertyValue('--accent')}50` : 'none',
                 }}
               >
                 <div style={{
-                  width:16, height:16, borderRadius:'50%', background:'#fff',
-                  position:'absolute', top:2,
-                  left: alarm.enabled ? 20 : 2,
-                  transition:'left .2s',
+                  width:22, height:22, borderRadius:'50%', background:'#fff',
+                  position:'absolute', top:3,
+                  left: alarm.enabled ? 27 : 3,
+                  transition:'all .3s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+                  boxShadow:'0 2px 4px rgba(0,0,0,0.2)',
                 }} />
               </button>
               
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ 
-                  fontFamily:'var(--font-mono)', fontSize:20, color:'var(--text-pri)', fontWeight:500,
-                  marginBottom:2,
+                  fontFamily:'var(--font-mono)', fontSize:28, fontWeight:300, 
+                  color: alarm.enabled ? 'var(--text-pri)' : 'var(--text-ter)',
+                  letterSpacing:-1, lineHeight:1.2,
+                  opacity: alarm.enabled ? 1 : 0.6,
                 }}>
                   {pad(alarm.h)}:{pad(alarm.m)}
                 </div>
+                <div style={{ fontSize:12, color:'var(--text-ter)', marginTop:4 }}>
+                  {formatDays(alarm.days)}
+                </div>
                 {alarm.label && (
-                  <div style={{ fontSize:12, color:'var(--text-ter)', fontFamily:'var(--font-body)', fontWeight:400 }}>
+                  <div style={{ fontSize:12, color:'var(--accent)', marginTop:2, fontWeight:500 }}>
                     {alarm.label}
                   </div>
                 )}
@@ -1117,24 +1291,23 @@ function Alarm() {
               <button 
                 onClick={() => handleDeleteAlarm(alarm.id)} 
                 style={{
-                  padding:'6px 12px', borderRadius:8, border:'1px solid var(--border)', cursor:'pointer',
-                  background:'transparent', color:'var(--text-sec)', fontSize:12, fontWeight:500,
-                  fontFamily:'var(--font-body)', flexShrink:0, transition:'all .15s',
+                  width:36, height:36, borderRadius:'50%', border:'none', cursor:'pointer',
+                  background:'transparent', color:'var(--text-ter)', 
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  transition:'all .15s', flexShrink:0,
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.background = 'var(--surface-hover)'
-                  e.currentTarget.style.borderColor = 'var(--accent)'
-                  e.currentTarget.style.color = 'var(--text-sec)'
+                  e.currentTarget.style.background = 'rgba(239,68,68,0.1)'
+                  e.currentTarget.style.color = '#ef4444'
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.background = 'transparent'
-                  e.currentTarget.style.borderColor = 'var(--border)'
-                  e.currentTarget.style.color = 'var(--text-sec)'
+                  e.currentTarget.style.color = 'var(--text-ter)'
                 }}
               >
-                {t('clock.delete')}
+                <RiDeleteBinLine size={18} />
               </button>
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -1334,7 +1507,7 @@ function Compass({ period }) {
   )
 }
 
-export default function ClockApp() {
+export default function ClockApp({ onClose, isSplitMode }) {
   const { t } = useTranslation()
   const { period } = useTheme()
   const [activeTab, setActiveTab] = useState('worldClock')
@@ -1397,53 +1570,79 @@ export default function ClockApp() {
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:4, padding:'12px 16px', borderBottom:'1px solid var(--border)', background:'var(--surface)', overflowX:'auto' }}>
-        {tabsOrder.map((tab, index) => {
-          const Icon = tabIcons[tab]
-          const isActive = activeTab === tab
-          const isDragging = draggedIndex === index
-          
-          return (
-            <div
-              key={tab}
-              draggable="true"
-              onDragStart={(e) => handleDragStart(e, index)}
-              onDragEnd={handleDragEnd}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDrop={(e) => handleDrop(e, index)}
-              onClick={() => handleClick(tab)}
-              style={{
-                padding:'10px 8px',
-                borderRadius:8,
-                border:`1px solid ${isDragging ? 'var(--accent)' : isActive ? 'var(--accent)' : 'transparent'}`,
-                cursor: isDragging ? 'grabbing' : 'grab',
-                fontFamily:'var(--font-display)',
-                fontSize:11,
-                fontWeight:600,
-                background: isActive ? 'var(--accent)' : isDragging ? 'var(--surface-hover)' : 'transparent',
-                color: isActive ? '#fff' : 'var(--text-sec)',
-                display:'flex',
-                flexDirection:'column',
-                alignItems:'center',
-                gap:4,
-                transition:'all .15s',
-                userSelect:'none',
-                transform: isDragging ? 'scale(0.95)' : 'scale(1)',
-              }}
-            >
-              <Icon size={18} color={isActive ? '#fff' : 'var(--text-sec)'} />
-              {t(`clock.${tab}`)}
-            </div>
-          )
-        })}
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)', overflowX:'auto' }}>
+        {!isSplitMode && (
+          <button 
+            onClick={onClose}
+            style={{
+              width:28, height:28, borderRadius:7, border:'1px solid var(--border)',
+              background:'var(--surface)', cursor:'pointer', color:'var(--text-sec)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              transition:'all .12s', flexShrink:0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <RiCloseLine size={14} />
+          </button>
+        )}
+        
+        <div style={{ display:'flex', gap:4 }}>
+          {tabsOrder.map((tab, index) => {
+            const Icon = tabIcons[tab]
+            const isActive = activeTab === tab
+            const isDragging = draggedIndex === index
+            
+            return (
+              <div
+                key={tab}
+                draggable="true"
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDrop={(e) => handleDrop(e, index)}
+                onClick={() => handleClick(tab)}
+                style={{
+                  width:36,
+                  height:36,
+                  borderRadius:10,
+                  border:`1px solid ${isDragging ? 'var(--accent)' : isActive ? 'var(--accent)' : 'transparent'}`,
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  background: isActive ? 'var(--accent)' : isDragging ? 'var(--surface-hover)' : 'transparent',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  transition:'all .15s',
+                  userSelect:'none',
+                  transform: isDragging ? 'scale(0.9)' : 'scale(1)',
+                }}
+              >
+                <Icon size={18} color={isActive ? '#fff' : 'var(--text-sec)'} />
+              </div>
+            )
+          })}
+        </div>
+        
+        <div style={{ width:28, flexShrink:0 }} />
       </div>
 
       <div style={{ flex:1, overflow:'auto', position:'relative' }}>
-        {activeTab === 'worldClock' && <WorldClock now={now} period={period} />}
-        {activeTab === 'pomodoro' && <Pomodoro />}
-        {activeTab === 'calendar' && <Calendar now={now} />}
-        {activeTab === 'alarm' && <Alarm />}
-        {activeTab === 'compass' && <Compass period={period} />}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            style={{ height: '100%' }}
+          >
+            {activeTab === 'worldClock' && <WorldClock now={now} period={period} />}
+            {activeTab === 'pomodoro' && <Pomodoro />}
+            {activeTab === 'calendar' && <Calendar now={now} />}
+            {activeTab === 'alarm' && <Alarm />}
+            {activeTab === 'compass' && <Compass period={period} />}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )

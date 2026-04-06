@@ -14,6 +14,7 @@ import {
   RiHeartLine, RiFlowerLine, RiLeafLine, RiSunLine, RiMoonLine, RiCloudLine,
   RiBold, RiItalic, RiStrikethrough2, RiListUnordered, RiListOrdered,
   RiDoubleQuotesL, RiCodeLine, RiLink, RiImageLine, RiSeparator,
+  RiCloseLine,
 } from '@remixicon/react'
 
 function useIsMobile(breakpoint = 768) {
@@ -231,7 +232,7 @@ function SidebarItem({ note, isActive, onClick, onDelete, onArchive, level = 0, 
   )
 }
 
-function Sidebar({ notes, activeId, onSelect, onNew, onDelete, onArchive, search, onSearchChange, view, onViewChange }) {
+function Sidebar({ notes, activeId, onSelect, onNew, onDelete, onArchive, search, onSearchChange, view, onViewChange, onClose, isSplitMode }) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
 
@@ -246,8 +247,23 @@ function Sidebar({ notes, activeId, onSelect, onNew, onDelete, onArchive, search
       borderRight: '1px solid var(--border)',
       flexShrink: 0,
     }}>
-      <div style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
-        <div style={{ position: 'relative' }}>
+      <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {!isSplitMode && (
+          <button 
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)',
+              background: 'var(--surface)', cursor: 'pointer', color: 'var(--text-sec)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all .12s', flexShrink: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <RiCloseLine size={14} />
+          </button>
+        )}
+        <div style={{ position: 'relative', flex: 1 }}>
           <RiSearchLine size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-ter)' }} />
           <input
             value={search}
@@ -875,7 +891,7 @@ function Editor({ note, onSave, onBack, isMobile }) {
   )
 }
 
-export default function NotesApp() {
+export default function NotesApp({ onClose, isSplitMode }) {
   const { t } = useTranslation()
   const [notes, setNotes] = useState([])
   const [archivedNotes, setArchivedNotes] = useState([])
@@ -971,6 +987,8 @@ export default function NotesApp() {
           onSearchChange={setSearch}
           view={view}
           onViewChange={setView}
+          onClose={onClose}
+          isSplitMode={isSplitMode}
         />
       )}
       {showEditor && (

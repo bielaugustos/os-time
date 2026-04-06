@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { SUPPORTED_LANGS } from '../config/i18n'
 import { PERIODS } from '../config/theme'
 import { PERMISSION_DEFS, check, request, checkAll, getPermissionToggles, togglePermission } from '../core/permissions'
-import { RiRefreshLine } from '@remixicon/react'
+import { RiRefreshLine, RiCloseLine } from '@remixicon/react'
 import TimeSettings from '../components/TimeSettings'
 
 function useIsMobile(breakpoint = 640) {
@@ -96,7 +96,7 @@ function PermissionRow({ def, state, enabled, onToggle, onRequest, isMobile }) {
   )
 }
 
-export default function SettingsApp({ onThemeOverride }) {
+export default function SettingsApp({ onThemeOverride, onClose, isSplitMode }) {
   const { t, i18n } = useTranslation()
   const [states,     setStates]     = useState({})
   const [toggles,    setToggles]    = useState(() => getPermissionToggles())
@@ -140,12 +140,30 @@ export default function SettingsApp({ onThemeOverride }) {
     </div>
   )
 
-  const pad = isMobile ? '4px 16px 48px' : '4px 24px 48px'
+  const pad = isMobile ? '0px 0px 48px' : '0px 0px 48px'
 
   return (
     <div style={{ height:'100%', overflowY:'auto', padding: pad, scrollbarWidth:'thin' }}>
+      {!isSplitMode && (
+        <div style={{ display:'flex', alignItems:'center', padding:'8px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface)', marginBottom:4 }}>
+          <button 
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, borderRadius: 7, border: '1px solid var(--border)',
+              background: 'var(--surface)', cursor: 'pointer', color: 'var(--text-sec)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all .12s', flexShrink: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-hover)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+          >
+            <RiCloseLine size={14} />
+          </button>
+        </div>
+      )}
 
-      <TimeSettings onThemeOverride={onThemeOverride} />
+      <div style={{ padding: '0px 20px' }}>
+        <TimeSettings onThemeOverride={onThemeOverride} />
 
       <SectionLabel>{t('settings.appearance')}</SectionLabel>
       <div style={{ fontSize:12, color:'var(--text-ter)', marginBottom:10 }}>
@@ -220,6 +238,7 @@ export default function SettingsApp({ onThemeOverride }) {
       <Row label={t('settings.database')} value="IndexedDB · Dexie" />
       <Row label={t('settings.offline')}  value="Service Worker" />
       {storage && <Row label={t('settings.storageUsed')} value={`${storage.used} KB / ${storage.quota} MB`} />}
+      </div>
     </div>
   )
 }

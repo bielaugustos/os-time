@@ -7,12 +7,14 @@ import { APP_REGISTRY, getApp } from './config/appRegistry'
 import { PERIODS } from './config/theme'
 import { TimeProvider, useTime } from './contexts/TimeContext'
 import TimeSettings from './components/TimeSettings'
+import SplitView from './components/SplitView'
+import AppSelector from './components/AppSelector'
+import GuidedTutorial, { isTutorialNeeded } from './components/GuidedTutorial'
 import './config/i18n'
 import { 
   RiHome4Line,
   RiTimeLine,
   RiFileTextLine,
-  RiCalculatorLine,
   RiFlashlightLine,
   RiMagicLine,
   RiSettings3Line,
@@ -20,6 +22,10 @@ import {
   RiNotification3Line,
   RiTimerLine,
   RiArtboardLine,
+  RiCloseLine,
+  RiArrowLeftRightLine,
+  RiArrowUpSLine,
+  RiArrowDownSLine,
 } from '@remixicon/react'
 
 function getIconForId(id) {
@@ -28,7 +34,6 @@ function getIconForId(id) {
     case 'clock': return RiTimeLine
     case 'notes': return RiFileTextLine
     case 'quadro': return RiArtboardLine
-    case 'calculator': return RiCalculatorLine
     case 'energy': return RiStackLine
     case 'chat': return RiMagicLine
     case 'settings': return RiSettings3Line
@@ -41,8 +46,15 @@ function TopBar({ period, onToggleMenu, menuOpen, onPomodoroClick }) {
   const { t, i18n } = useTranslation()
   const [time, setTime] = React.useState(new Date())
   const [online, setOnline] = React.useState(navigator.onLine)
-  const [blurEnabled, setBlurEnabled] = React.useState(true)
+  const [blurEnabled, setBlurEnabled] = React.useState(() => {
+    const saved = localStorage.getItem('clock_blur_enabled')
+    return saved !== null ? saved === 'true' : false
+  })
   const [pomodoroState, setPomodoroState] = React.useState(null)
+
+  useEffect(() => {
+    localStorage.setItem('clock_blur_enabled', String(blurEnabled))
+  }, [blurEnabled])
 
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 10_000)
@@ -199,7 +211,7 @@ function TopBar({ period, onToggleMenu, menuOpen, onPomodoroClick }) {
 }
 
 /* ── Horizontal Menu ─────────────────────────────────────────── */
-function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverride }) {
+function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverride, onLongPress, splitMode }) {
   const { t, i18n } = useTranslation()
   const lang = i18n.language
   const [menuOrder, setMenuOrder] = React.useState(() => {
@@ -212,6 +224,7 @@ function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverri
   const [draggedItem, setDraggedItem] = React.useState(null)
   const [isDragging, setIsDragging] = React.useState(false)
   const dragStartPos = React.useRef({ x: 0, y: 0 })
+  const longPressTimer = React.useRef(null)
 
   const handleDragStart = (e, itemId) => {
     setDraggedItem(itemId)
@@ -248,14 +261,48 @@ function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverri
   }
 
   const handleClick = (e, itemId) => {
-    if (!isDragging) {
+    if (!isDragging && !longPressTimer.current) {
       onNavigate(itemId)
+    }
+  }
+
+  const handleMouseDown = (e, itemId) => {
+    if (itemId === 'home') return
+    longPressTimer.current = setTimeout(() => {
+      onLongPress(itemId)
+      longPressTimer.current = null
+    }, 400)
+  }
+
+  const handleMouseUp = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  const handleTouchStart = (e, itemId) => {
+    if (itemId === 'home') return
+    longPressTimer.current = setTimeout(() => {
+      onLongPress(itemId)
+      longPressTimer.current = null
+    }, 400)
+  }
+
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
     }
   }
 
   const getItemById = (id) => {
     if (id === 'home') return { id:'home', key:'nav.home', Icon: RiHome4Line }
     return APP_REGISTRY.find(a => a.id === id)
+  }
+
+  const isInSplit = (itemId) => {
+    return splitMode.active && (splitMode.leftApp === itemId || splitMode.rightApp === itemId)
   }
 
   return (
@@ -285,6 +332,7 @@ function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverri
             {menuOrder.map(itemId => {
               const item = getItemById(itemId)
               if (!item) return null
+              const inSplit = isInSplit(itemId)
               return (
 <div
                     key={item.id}
@@ -294,6 +342,11 @@ function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverri
                     onDrop={(e) => handleDrop(e, item.id)}
                     onDragEnd={handleDragEnd}
                     onClick={(e) => handleClick(e, item.id)}
+                    onMouseDown={(e) => handleMouseDown(e, item.id)}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    onTouchStart={(e) => handleTouchStart(e, item.id)}
+                    onTouchEnd={handleTouchEnd}
                     style={{
                       display:'flex',
                       flexDirection:'column',
@@ -302,7 +355,8 @@ function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverri
                       padding:'8px 10px',
                       borderRadius:10,
                       background: activeApp === item.id ? 'var(--surface-hover)' : 'transparent',
-                      border: activeApp === item.id ? '1px solid var(--border2)' : '1px solid transparent',
+                      border: inSplit ? `1px solid var(--accent)` : activeApp === item.id ? '1px solid var(--border2)' : '1px solid transparent',
+                      boxShadow: inSplit ? `0 0 8px var(--accent)40` : 'none',
                       cursor:'grab',
                       transition:'all .15s',
                       minWidth: 70,
@@ -310,7 +364,6 @@ function HorizontalMenu({ activeApp, onNavigate, menuOpen, period, onThemeOverri
                       textAlign:'center',
                     }}
                     onMouseEnter={e => { if(activeApp !== item.id) e.currentTarget.style.background = 'var(--surface)' }}
-                    onMouseLeave={e => { if(activeApp !== item.id) e.currentTarget.style.background = 'transparent' }}
                   >
                     {(() => {
                       const Icon = getIconForId(item.id)
@@ -362,7 +415,14 @@ function Launcher({ period, onOpen }) {
   const { t } = useTranslation()
   const { currentTime, online } = useTime()
   const greetingKey = `greeting.${period.name}`
-  const [blurEnabled, setBlurEnabled] = React.useState(true)
+  const [blurEnabled, setBlurEnabled] = React.useState(() => {
+    const saved = localStorage.getItem('clock_blur_enabled')
+    return saved !== null ? saved === 'true' : false
+  })
+
+  React.useEffect(() => {
+    localStorage.setItem('clock_blur_enabled', String(blurEnabled))
+  }, [blurEnabled])
 
   const formatDate = () => {
     const options = { weekday:'long', year:'numeric', month:'long', day:'numeric' }
@@ -414,7 +474,7 @@ function Launcher({ period, onOpen }) {
             whileHover={!app.disabled ? { backgroundColor:'var(--surface-hover)', borderColor:'var(--border2)', y:-2 } : {}}
             whileTap={!app.disabled ? { scale:.95 } : {}}
            >
-              <div style={{ width:52, height:52, borderRadius:14, background: app.disabled ? `${app.color}08` : `${app.color}18`, border:`1px solid ${app.color}28`, display:'flex', alignItems:'center', justifyContent:'center', color: app.color }}>
+              <div style={{ width:52, height:52, borderRadius:14, background: app.disabled ? `${app.color}08` : `${app.color}18`, border:`1px solid ${app.color}28`, display:'flex', alignItems:'center', justifyContent:'center', color: 'var(--text-pri)' }}>
                  {(() => {
                    const Icon = getIconForId(app.id)
                    return Icon ? <Icon size={app.iconSize ?? 26} /> : null
@@ -445,7 +505,6 @@ function Launcher({ period, onOpen }) {
 /* ── App window ────────────────────────────────────────────── */
 function AppWindow({ appId, onClose, onThemeOverride }) {
   const app = getApp(appId)
-  const { t } = useTranslation()
   const [touchStart, setTouchStart] = React.useState(null)
 
   const handleTouchStart = (e) => {
@@ -473,45 +532,100 @@ function AppWindow({ appId, onClose, onThemeOverride }) {
       onTouchEnd={handleTouchEnd}
       style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', touchAction: 'manipulation' }}
     >
-      <div style={{
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        padding:'12px 20px', borderBottom:'1px solid var(--border)',
-        flexShrink:0, background:'rgba(0,0,0,0.15)',
-      }}>
-        <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-          {(() => {
-            const Icon = getIconForId(appId)
-            return Icon ? <Icon size={18} color={app.color} /> : null
-          })()}
-          <span style={{ fontFamily:'Syne', fontSize:16, fontWeight:600, color:'var(--text-pri)' }}>
-            {t(app.appKey)}
-          </span>
-        </div>
-        <button onClick={onClose} style={{
-          background:'var(--surface)', border:'1px solid var(--border)',
-          borderRadius:9, width:30, height:30, cursor:'pointer',
-          color:'var(--text-sec)', fontSize:17,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          transition:'background .12s',
-          touchAction: 'manipulation'
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
-        >
-          ×
-        </button>
-      </div>
-
       <div style={{ flex:1, overflow:'hidden', position:'relative', paddingBottom:'env(safe-area-inset-bottom, 0px)' }}>
         <Suspense fallback={
           <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-ter)', fontSize:13 }}>
             Loading...
           </div>
         }>
-          <app.component onThemeOverride={onThemeOverride} />
+          <app.component onThemeOverride={onThemeOverride} onClose={onClose} />
         </Suspense>
       </div>
     </motion.div>
+  )
+}
+
+/* ── Split Top Bar ─────────────────────────────────────────── */
+function SplitTopBar({ leftApp, rightApp, onClose, onSwapApp, onToggleNavbar, navbarVisible }) {
+  const LeftIcon = getIconForId(leftApp)
+  const RightIcon = getIconForId(rightApp)
+
+  return (
+    <div style={{
+      height: 44, display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'0 16px', borderBottom:'1px solid var(--border)',
+      flexShrink:0, background:'rgba(0,0,0,0.4)',
+      backdropFilter:'blur(12px)', WebkitBackdropFilter:'blur(12px)',
+    }}>
+      <button 
+        onClick={onClose}
+        style={{
+          background:'var(--surface)', border:'1px solid var(--border)',
+          borderRadius:8, width:28, height:28, cursor:'pointer',
+          color:'var(--text-sec)', fontSize:15,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          transition:'background .12s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}
+      >
+        ×
+      </button>
+
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{
+          display:'flex', alignItems:'center', gap:6,
+          padding:'6px 12px', borderRadius:20,
+          background:'var(--accent)', color:'#fff',
+        }}>
+          {LeftIcon && <LeftIcon size={16} />}
+        </div>
+        
+        <RiArrowLeftRightLine size={16} color="var(--text-ter)" />
+        
+        <button 
+          onClick={onSwapApp}
+          style={{
+            display:'flex', alignItems:'center', gap:6,
+            padding:'6px 12px', borderRadius:20,
+            background:'var(--surface)', border:'1px solid var(--border)',
+            color:'var(--text-sec)', cursor:'pointer',
+            transition:'all .15s',
+          }}
+          onMouseEnter={e => { 
+            e.currentTarget.style.background = 'var(--surface-hover)'
+            e.currentTarget.style.borderColor = 'var(--accent)'
+          }}
+          onMouseLeave={e => { 
+            e.currentTarget.style.background = 'var(--surface)'
+            e.currentTarget.style.borderColor = 'var(--border)'
+          }}
+        >
+          {RightIcon && <RightIcon size={16} />}
+        </button>
+
+        <button 
+          onClick={onToggleNavbar}
+          style={{
+            display:'flex', alignItems:'center', gap:6,
+            padding:'6px 8px', borderRadius:8,
+            background:'var(--surface)', border:'1px solid var(--border)',
+            color:'var(--text-sec)', cursor:'pointer',
+            transition:'all .15s',
+          }}
+          onMouseEnter={e => { 
+            e.currentTarget.style.background = 'var(--surface-hover)'
+          }}
+          onMouseLeave={e => { 
+            e.currentTarget.style.background = 'var(--surface)'
+          }}
+        >
+          {navbarVisible ? <RiArrowUpSLine size={16} /> : <RiArrowDownSLine size={16} />}
+        </button>
+      </div>
+
+      <div style={{ width:28 }} />
+    </div>
   )
 }
 
@@ -521,28 +635,124 @@ function AppContent() {
   const { period, setOverride } = useTheme(currentTime)
   const [activeApp, setActiveApp] = React.useState('home')
   const [menuOpen, setMenuOpen] = React.useState(false)
+  const [splitMode, setSplitMode] = React.useState(() => {
+    try {
+      const saved = localStorage.getItem('splitMode')
+      return saved ? JSON.parse(saved) : { active: false, leftApp: null, rightApp: null }
+    } catch { return { active: false, leftApp: null, rightApp: null } }
+  })
+  const [showAppSelector, setShowAppSelector] = React.useState(false)
+  const [pendingSplitApp, setPendingSplitApp] = React.useState(null)
+  const [showTutorial, setShowTutorial] = React.useState(false)
+  const [swappingApp, setSwappingApp] = React.useState(null)
+  const [navbarVisible, setNavbarVisible] = React.useState(true)
 
   const navigate = (id) => {
     setActiveApp(id)
     setMenuOpen(false)
   }
 
+  const handleLongPress = (appId) => {
+    if (appId === 'home') return
+    setPendingSplitApp(appId)
+    setShowTutorial(true)
+  }
+
+  const handleTutorialComplete = () => {
+    setShowTutorial(false)
+    setShowAppSelector(true)
+  }
+
+  const handleTutorialSkip = () => {
+    setShowTutorial(false)
+    setShowAppSelector(true)
+  }
+
+  const handleSelectSplitApp = (secondAppId) => {
+    setSplitMode({
+      active: true,
+      leftApp: pendingSplitApp,
+      rightApp: secondAppId,
+    })
+    localStorage.setItem('splitMode', JSON.stringify({
+      active: true,
+      leftApp: pendingSplitApp,
+      rightApp: secondAppId,
+    }))
+    setShowAppSelector(false)
+    setPendingSplitApp(null)
+  }
+
+  const handleSwapApp = (appToSwap) => {
+    setSwappingApp(appToSwap)
+    setPendingSplitApp(appToSwap === 'left' ? splitMode.leftApp : splitMode.rightApp)
+    setShowAppSelector(true)
+  }
+
+  const handleSwapComplete = (newAppId) => {
+    if (swappingApp === 'right') {
+      setSplitMode(prev => ({
+        ...prev,
+        rightApp: newAppId,
+      }))
+      localStorage.setItem('splitMode', JSON.stringify({
+        ...splitMode,
+        rightApp: newAppId,
+      }))
+    }
+    setShowAppSelector(false)
+    setSwappingApp(null)
+    setPendingSplitApp(null)
+  }
+
+  const handleCloseSplit = () => {
+    setSplitMode({ active: false, leftApp: null, rightApp: null })
+    localStorage.setItem('splitMode', JSON.stringify({ active: false, leftApp: null, rightApp: null }))
+    navigate('home')
+  }
+
+  const handleCloseOneApp = (appToClose) => {
+    if (appToClose === splitMode.leftApp) {
+      if (splitMode.rightApp) {
+        setSplitMode({ active: false, leftApp: null, rightApp: null })
+        localStorage.setItem('splitMode', JSON.stringify({ active: false, leftApp: null, rightApp: null }))
+        navigate(splitMode.rightApp)
+      } else {
+        handleCloseSplit()
+      }
+    } else {
+      setSplitMode(prev => ({
+        ...prev,
+        rightApp: null,
+      }))
+      localStorage.setItem('splitMode', JSON.stringify({
+        ...splitMode,
+        rightApp: null,
+      }))
+    }
+  }
+
   useEffect(() => {
     const handler = (e) => {
-      if (e.key === 'Escape') setActiveApp('home')
+      if (e.key === 'Escape') {
+        if (splitMode.active) {
+          handleCloseSplit()
+        } else {
+          setActiveApp('home')
+        }
+      }
       if (e.key === '1') setActiveApp('clock')
       if (e.key === '2') setActiveApp('notes')
-      if (e.key === '3') setActiveApp('calculator')
-      if (e.key === '4') setActiveApp('energy')
-      if (e.key === '5') setActiveApp('chat')
-      if (e.key === '6') setActiveApp('settings')
-      if (e.key === '7') setActiveApp('quadro')
+      if (e.key === '3') setActiveApp('energy')
+      if (e.key === '4') setActiveApp('chat')
+      if (e.key === '5') setActiveApp('settings')
+      if (e.key === '6') setActiveApp('quadro')
       if (e.ctrlKey && e.key === ',') { e.preventDefault(); setActiveApp('settings') }
       if (e.ctrlKey && e.key === 'n') { e.preventDefault(); setActiveApp('notes') }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [splitMode])
 
   return (
     <div style={{ width:'100vw', height:'100dvh', background:'var(--bg)', display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
@@ -550,14 +760,51 @@ function AppContent() {
       <div style={{ position:'absolute', inset:0, background: period.orb, zIndex:0, pointerEvents:'none' }} />
 
       <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', height:'100%', paddingBottom:'env(safe-area-inset-bottom, 0px)' }}>
-        <TopBar period={period} onToggleMenu={() => setMenuOpen(v => !v)} menuOpen={menuOpen} onPomodoroClick={() => navigate('clock')} />
+        {!splitMode.active && (
+          <TopBar 
+            period={period} 
+            onToggleMenu={() => setMenuOpen(v => !v)} 
+            menuOpen={menuOpen} 
+            onPomodoroClick={() => navigate('clock')}
+          />
+        )}
 
-        <HorizontalMenu activeApp={activeApp} onNavigate={navigate} menuOpen={menuOpen} period={period} onThemeOverride={setOverride} />
+        {splitMode.active && (
+          <SplitTopBar
+            leftApp={splitMode.leftApp}
+            rightApp={splitMode.rightApp}
+            onClose={handleCloseSplit}
+            onSwapApp={() => handleSwapApp('right')}
+            onToggleNavbar={() => setNavbarVisible(v => !v)}
+            navbarVisible={navbarVisible}
+          />
+        )}
+
+        {(!splitMode.active || navbarVisible) && (
+          <HorizontalMenu 
+            activeApp={activeApp} 
+            onNavigate={navigate} 
+            menuOpen={menuOpen} 
+            period={period} 
+            onThemeOverride={setOverride}
+            onLongPress={handleLongPress}
+            splitMode={splitMode}
+          />
+        )}
 
         <div style={{ flex:1, position:'relative', overflow:'hidden' }}>
           <AnimatePresence mode="wait">
-            {activeApp === 'home' ? (
+            {activeApp === 'home' && !splitMode.active ? (
               <Launcher key="home" period={period} onOpen={navigate} />
+            ) : splitMode.active ? (
+              <SplitView
+                key="split"
+                leftApp={splitMode.leftApp}
+                rightApp={splitMode.rightApp}
+                onCloseOneApp={handleCloseOneApp}
+                onCloseAll={() => handleCloseSplit()}
+                onThemeOverride={setOverride}
+              />
             ) : (
               <AppWindow
                 key={activeApp}
@@ -569,6 +816,23 @@ function AppContent() {
           </AnimatePresence>
         </div>
       </div>
+
+      <AppSelector
+        isOpen={showAppSelector}
+        currentAppId={pendingSplitApp}
+        onSelect={swappingApp ? handleSwapComplete : handleSelectSplitApp}
+        onClose={() => {
+          setShowAppSelector(false)
+          setPendingSplitApp(null)
+          setSwappingApp(null)
+        }}
+      />
+
+      <GuidedTutorial
+        isOpen={showTutorial}
+        onComplete={handleTutorialComplete}
+        onSkip={handleTutorialSkip}
+      />
     </div>
   )
 }
