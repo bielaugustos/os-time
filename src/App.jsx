@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useTheme } from './hooks/useTheme'
 import { useWindowManager } from './hooks/useWindowManager'
+import { syncService } from './core/sync'
 import { APP_REGISTRY, getApp } from './config/appRegistry'
 import { PERIODS } from './config/theme'
 import { TimeProvider, useTime } from './contexts/TimeContext'
@@ -51,6 +52,7 @@ function TopBar({ period, onToggleMenu, menuOpen, onPomodoroClick }) {
     return saved !== null ? saved === 'true' : false
   })
   const [pomodoroState, setPomodoroState] = React.useState(null)
+  const [syncStatus, setSyncStatus] = React.useState({ isSyncing: false, lastSync: null })
 
   useEffect(() => {
     localStorage.setItem('clock_blur_enabled', String(blurEnabled))
@@ -83,6 +85,19 @@ function TopBar({ period, onToggleMenu, menuOpen, onPomodoroClick }) {
     checkPomodoro()
     const interval = setInterval(checkPomodoro, 1000)
     return () => clearInterval(interval)
+  }, [])
+
+  React.useEffect(() => {
+    const unsubscribe = syncService.subscribe((event) => {
+      if (event.type === 'sync_start') {
+        setSyncStatus(s => ({ ...s, isSyncing: true }))
+      } else if (event.type === 'sync_complete') {
+        setSyncStatus({ isSyncing: false, lastSync: event.timestamp })
+      } else if (event.type === 'offline') {
+        setSyncStatus(s => ({ ...s, isSyncing: false }))
+      }
+    })
+    return unsubscribe
   }, [])
 
   const dateStr = time.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -182,7 +197,23 @@ function TopBar({ period, onToggleMenu, menuOpen, onPomodoroClick }) {
       </div>
 
       <div style={{ display:'flex', alignItems:'center', gap:14, fontSize:12, color:'var(--text-ter)' }}>
-        <span style={{ color: online ? 'var(--accent)' : 'var(--text-ter)', fontSize:10 }}>◉</span>
+        <span 
+          style={{ 
+            color: syncStatus.isSyncing ? 'var(--accent)' : (online ? 'var(--accent)' : 'var(--text-ter)'), 
+            fontSize: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <span style={{ 
+            animation: syncStatus.isSyncing ? 'spin 1s linear infinite' : 'none',
+            display: 'inline-block',
+          }}>
+            ◉
+          </span>
+          {syncStatus.isSyncing ? t('sync.syncing') : ''}
+        </span>
         <span>{period.label?.[i18n.language] ?? period.label?.en ?? period.name}</span>
         {pomodoroState && pomodoroState.showNotification && (
           <span 
@@ -838,6 +869,10 @@ function AppContent() {
 }
 
 export default function App() {
+  useEffect(() => {
+    syncService.init()
+  }, [])
+  
   return (
     <TimeProvider>
       <AppContent />

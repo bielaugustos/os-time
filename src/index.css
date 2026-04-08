@@ -35,12 +35,13 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Transitions ──────────────────────────────────────────── */
+/* ── Global transitions (GPU-optimized only) ─────────────────── */
 body * {
   transition:
     background-color 0.5s ease,
     border-color 0.5s ease,
     color 0.5s ease;
+  transition-property: background-color, border-color, color;
 }
 
 /* Exclude motion elements from color transitions */
@@ -70,7 +71,23 @@ input, textarea, button {
 input:focus, textarea:focus { outline: none; }
 button { cursor: pointer; }
 
-/* ── Animations ───────────────────────────────────────────── */
+/* ── GPU Acceleration ───────────────────────────────────────── */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* ── Animation Performance ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Animations (GPU-optimized: transform + opacity only) ───── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -96,8 +113,29 @@ button { cursor: pointer; }
   100% { background-position:  200% 0; }
 }
 
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 .anim-fade-up { animation: fadeUp 0.3s ease both; }
 .anim-fade-in { animation: fadeIn 0.2s ease both; }
+.anim-pulse { animation: pulse 2s ease-in-out infinite; }
+.anim-spin { animation: spin 1s linear infinite; }
+.anim-slide-in { animation: slideInRight 0.25s ease both; }
+.anim-scale-in { animation: scaleIn 0.2s ease both; }
+
+/* Stagger delays for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
 
 /* ── Safe area (notched devices) ──────────────────────────── */
 body {

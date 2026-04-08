@@ -40,6 +40,7 @@ const resources = {
     settings: { appearance:'Appearance', language:'Language', permissions:'Permissions', system:'System', themeAuto:'auto', refresh:'Refresh', granted:'Granted', denied:'Denied', allow:'Allow', version:'Version', engine:'Engine', database:'Database', offline:'Offline', storageUsed:'Storage used', session:'Session', ofTotalGranted:'{{granted}} of {{total}} granted', checking:'Checking...', themeDescription:'Adapts automatically to time of day. Preview:' },
     permissions: { microphone:'Microphone', camera:'Camera', location:'Location', notifications:'Notifications', storage:'Storage', clipboard:'Clipboard', micReason:'Voice commands & Whisper STT', camReason:'QR scanner & avatar capture', geoReason:'Local weather & context', notifReason:'Alarms & reminders', storageReason:'Offline data never deleted', clipReason:'Paste between apps', deniedHint:'Change in browser settings', chromeHint:'Chrome: ⋮ → Settings → Privacy → Site settings', safariHint:'Safari: Settings → Safari → [this site]' },
     shortcuts: { title:'Keyboard shortcuts', apps:'Open apps', home:'Go to today', settings:'Settings', newNote:'New note' },
+    sync: { syncing:'Syncing...', synced:'Synced', offline:'Offline', error:'Sync error', retry:'Retry' },
   }},
   pt: { translation: {
     greeting: { dawn:'Bom amanhecer', morning:'Bom dia', midday:'Boa tarde', afternoon:'Boa tarde', evening:'Boa noite', night:'Boa madrugada' },
@@ -53,6 +54,7 @@ const resources = {
     settings: { appearance:'Aparência', language:'Idioma', permissions:'Permissões', system:'Sistema', themeAuto:'auto', refresh:'Atualizar', granted:'Concedida', denied:'Negada', allow:'Permitir', version:'Versão', engine:'Engine', database:'Banco de dados', offline:'Offline', storageUsed:'Armazenamento', session:'Sessão', ofTotalGranted:'{{granted}} de {{total}} concedidas', checking:'Verificando...', themeDescription:'Adapta-se automaticamente ao período do dia. Pré-visualização:' },
     permissions: { microphone:'Microfone', camera:'Câmera', location:'Localização', notifications:'Notificações', storage:'Armazenamento', clipboard:'Área de cópia', micReason:'Comandos de voz e transcrição', camReason:'Scanner QR e avatar', geoReason:'Clima local e contexto', notifReason:'Alarmes e lembretes', storageReason:'Dados offline permanentes', clipReason:'Colar entre apps', deniedHint:'Altere nos ajustes do browser', chromeHint:'Chrome: ⋮ → Ajustes → Privacidade → Ajustes do site', safariHint:'Safari: Ajustes → Safari → [este site]' },
     shortcuts: { title:'Atalhos de teclado', apps:'Abrir apps', home:'Ir para hoje', settings:'Ajustes', newNote:'Nova nota' },
+    sync: { syncing:'Sincronizando...', synced:'Sincronizado', offline:'Offline', error:'Erro de sincronização', retry:'Tentar novamente' },
   }},
   es: { translation: {
     greeting: { dawn:'Buenos días temprano', morning:'Buenos días', midday:'Buenas tardes', afternoon:'Buenas tardes', evening:'Buenas noches', night:'Buenas noches' },
@@ -92,6 +94,7 @@ const resources = {
     settings: { appearance:'Apariencia', language:'Idioma', permissions:'Permisos', system:'Sistema', themeAuto:'auto', refresh:'Actualizar', granted:'Concedido', denied:'Denegado', allow:'Permitir', version:'Versión', engine:'Motor', database:'Base de datos', offline:'Sin conexión', storageUsed:'Almacenamiento', session:'Sesión', ofTotalGranted:'{{granted}} de {{total}} concedidos', checking:'Verificando...', themeDescription:'Se adapta automáticamente al momento del día. Vista previa:' },
     permissions: { microphone:'Micrófono', camera:'Cámara', location:'Ubicación', notifications:'Notificaciones', storage:'Almacenamiento', clipboard:'Portapapeles', micReason:'Comandos de voz', camReason:'Escáner QR y avatar', geoReason:'Clima local', notifReason:'Alarmas y recordatorios', storageReason:'Datos offline permanentes', clipReason:'Pegar entre apps', deniedHint:'Cambia en la configuración del navegador', chromeHint:'Chrome: ⋮ → Configuración → Privacidad → Config. del sitio', safariHint:'Safari: Ajustes → Safari → [este sitio]' },
     shortcuts: { title:'Atajos de teclado', apps:'Abrir apps', home:'Ir a hoy', settings:'Configuración', newNote:'Nueva nota' },
+    sync: { syncing:'Sincronizando...', synced:'Sincronizado', offline:'Offline', error:'Error de sincronización', retry:'Reintentar' },
   }},
   fr: { translation: {
     greeting: { dawn:'Bonjour tôt', morning:'Bonjour', midday:'Bon après-midi', afternoon:'Bon après-midi', evening:'Bonsoir', night:'Bonne nuit' },
@@ -131,6 +134,7 @@ const resources = {
     settings: { appearance:'Apparence', language:'Langue', permissions:'Autorisations', system:'Système', themeAuto:'auto', refresh:'Actualiser', granted:'Accordé', denied:'Refusé', allow:'Autoriser', version:'Version', engine:'Moteur', database:'Base de données', offline:'Hors ligne', storageUsed:'Stockage utilisé', session:'Séance', ofTotalGranted:'{{granted}} de {{total}} accordés', checking:'Vérification...', themeDescription:'S\'adapte automatiquement au moment de la journée. Aperçu:' },
     permissions: { microphone:'Microphone', camera:'Caméra', location:'Localisation', notifications:'Notifications', storage:'Stockage', clipboard:'Presse-papiers', micReason:'Commandes vocales', camReason:'Scanner QR et avatar', geoReason:'Météo locale', notifReason:'Alarmes et rappels', storageReason:'Données hors ligne permanentes', clipReason:'Coller entre les apps', deniedHint:'Modifiez dans les paramètres du navigateur', chromeHint:'Chrome: ⋮ → Paramètres → Confidentialité → Paramètres du site', safariHint:'Safari: Réglages → Safari → [ce site]' },
     shortcuts: { title:'Raccourcis clavier', apps:'Ouvrir les apps', home:'Aller à aujourd\'hui', settings:'Paramètres', newNote:'Nouvelle note' },
+    sync: { syncing:'Synchronisation...', synced:'Synchronisé', offline:'Hors ligne', error:'Erreur de synchronisation', retry:'Réessayer' },
   }},
 }
 

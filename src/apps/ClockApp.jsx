@@ -1587,7 +1587,7 @@ export default function ClockApp({ onClose, isSplitMode }) {
           </button>
         )}
         
-        <div style={{ display:'flex', gap:4 }}>
+        <div style={{ display:'flex', gap:2 }}>
           {tabsOrder.map((tab, index) => {
             const Icon = tabIcons[tab]
             const isActive = activeTab === tab
@@ -1603,9 +1603,9 @@ export default function ClockApp({ onClose, isSplitMode }) {
                 onDrop={(e) => handleDrop(e, index)}
                 onClick={() => handleClick(tab)}
                 style={{
-                  width:36,
-                  height:36,
-                  borderRadius:10,
+                  width:28,
+                  height:28,
+                  borderRadius:7,
                   border:`1px solid ${isDragging ? 'var(--accent)' : isActive ? 'var(--accent)' : 'transparent'}`,
                   cursor: isDragging ? 'grabbing' : 'grab',
                   background: isActive ? 'var(--accent)' : isDragging ? 'var(--surface-hover)' : 'transparent',
@@ -1617,7 +1617,7 @@ export default function ClockApp({ onClose, isSplitMode }) {
                   transform: isDragging ? 'scale(0.9)' : 'scale(1)',
                 }}
               >
-                <Icon size={18} color={isActive ? '#fff' : 'var(--text-sec)'} />
+                <Icon size={14} color={isActive ? '#fff' : 'var(--text-sec)'} />
               </div>
             )
           })}

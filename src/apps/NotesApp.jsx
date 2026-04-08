@@ -1,7 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { getNotes, saveNote, deleteNote, getArchivedNotes, archiveNote, restoreNote, permanentlyDeleteNote } from '../core/db'
+import { getNotes, saveNote, deleteNote, getArchivedNotes, archiveNote, restoreNote, permanentlyDeleteNote, SYNC_STATUS } from '../core/db'
+import { encryptData, decryptData } from '../core/security'
+import { useBatteryOptimization, useAnimationOptimizer, useDeferredRender, useLazyLoad } from '../hooks/useBattery'
 import { 
   RiFileTextLine, RiAddLine, RiSearchLine, RiDeleteBinLine,
   RiArrowLeftSLine, RiMoreFill, RiPushpinLine, RiPushpinFill,
@@ -899,7 +901,14 @@ export default function NotesApp({ onClose, isSplitMode }) {
   const [search, setSearch] = useState('')
   const [view, setView] = useState('all')
   const [mobileView, setMobileView] = useState('list')
+  const [isSaving, setIsSaving] = useState(false)
   const isMobile = useIsMobile()
+  
+  const animationOptimizer = useAnimationOptimizer({
+    defaultDuration: 300,
+    lowPowerDuration: 500,
+  })
+  const { shouldReduceMotion } = animationOptimizer
 
   useEffect(() => {
     loadNotes()
@@ -933,12 +942,28 @@ export default function NotesApp({ onClose, isSplitMode }) {
     if (isMobile) setMobileView('editor')
   }
 
-  const handleSave = async (note) => {
+  const handleSave = async (note, immediate = false) => {
     if (!note) return
-    const updated = { ...note, updatedAt: Date.now() }
-    await saveNote(updated)
-    setNotes(prev => prev.map(n => n.id === note.id ? updated : n))
+    
+    if (immediate) {
+      setIsSaving(true)
+      const updated = { ...note, updatedAt: Date.now(), syncStatus: SYNC_STATUS.PENDING }
+      await saveNote(updated)
+      setNotes(prev => prev.map(n => n.id === note.id ? updated : n))
+      setIsSaving(false)
+    } else {
+      if (shouldReduceMotion) return
+      setTimeout(async () => {
+        const updated = { ...note, updatedAt: Date.now(), syncStatus: SYNC_STATUS.PENDING }
+        await saveNote(updated)
+        setNotes(prev => prev.map(n => n.id === note.id ? updated : n))
+      }, 500)
+    }
   }
+
+  const handleSaveOptimized = useCallback((note) => {
+    handleSave(note, false)
+  }, [shouldReduceMotion])
 
   const handleDelete = async (id) => {
     await deleteNote(id)
@@ -994,9 +1019,10 @@ export default function NotesApp({ onClose, isSplitMode }) {
       {showEditor && (
         <Editor
           note={activeNote}
-          onSave={handleSave}
+          onSave={handleSaveOptimized}
           onBack={handleBack}
           isMobile={isMobile}
+          animationConfig={animationOptimizer.framerMotionConfig()}
         />
       )}
     </div>
